@@ -153,9 +153,7 @@
     const perSuit = suits.map((_, s) => state[s].filter(Boolean).length);
     const total = perSuit.reduce((a,b) => a + b, 0);
     statsEl.innerHTML =
-      `<div><b>Denari</b> ${perSuit[0]}/10 &nbsp; <b>Coppe</b> ${perSuit[1]}/10</div>` +
-      `<div><b>Spade</b> ${perSuit[2]}/10 &nbsp; <b>Bastoni</b> ${perSuit[3]}/10</div>` +
-      `<div><b>Totale</b> ${total}/40</div>`;
+      `<div><b>Denari</b> ${perSuit[0]}/10 &nbsp; <div><b>Totale</b> ${total}/40</div>`;
   }
 
   function saveState() {
