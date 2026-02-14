@@ -1,0 +1,23 @@
+<table class="card-grid">
+  <thead>
+    <tr>
+      <th *ngFor="let suit of suits; trackBy: trackBySuit">{{ suit }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let rank of ranks; trackBy: trackByRank">
+      <td *ngFor="let suit of suits; trackBy: trackBySuit">
+        <ng-container *ngIf="getCard(suit, rank) as card">
+          <app-card-cell
+            [card]="card"
+            [state]="getState(card.id)"
+            [probability]="getProbability(rank)"
+            [mode]="mode"
+            [selectable]="isSelectable(card.id)"
+            (clicked)="onCardClick(card.id)"
+          />
+        </ng-container>
+      </td>
+    </tr>
+  </tbody>
+</table>

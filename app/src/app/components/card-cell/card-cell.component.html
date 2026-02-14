@@ -1,0 +1,24 @@
+<button
+  type="button"
+  class="cell-button"
+  [class.table-mode]="mode === 'table'"
+  [class.hand-mode]="mode === 'hand'"
+  [class.state-unknown]="state === cardState.UNKNOWN"
+  [class.state-in-my-hand]="state === cardState.IN_MY_HAND"
+  [class.state-on-table]="state === cardState.ON_TABLE"
+  [class.state-on-table-blinking]="state === cardState.ON_TABLE_BLINKING"
+  [class.state-played]="state === cardState.PLAYED"
+  [class.state-combination-candidate]="state === cardState.COMBINATION_CANDIDATE"
+  [class.not-selectable]="!selectable && state !== cardState.PLAYED && state !== cardState.ON_TABLE_BLINKING"
+  (click)="onClick()"
+>
+  <span class="cell-main">{{ mainText }}</span>
+  <span
+    class="cell-sub"
+    [class.sub-mine]="state === cardState.IN_MY_HAND"
+    *ngIf="showSubText"
+  >
+    {{ subText }}
+  </span>
+</button>
+

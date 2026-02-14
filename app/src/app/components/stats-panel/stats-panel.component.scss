@@ -1,0 +1,12 @@
+:host {
+  display: block;
+}
+
+.stats-row {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 14px;
+  margin-top: 8px;
+}

@@ -1,0 +1,11 @@
+<div class="hand-wrap" *ngIf="vm$ | async as vm">
+  <h2>La mia mano ({{ vm.myHandCount }}/3)</h2>
+  <app-card-grid
+    mode="hand"
+    [cardStates]="vm.cardStates"
+    [probabilities]="emptyProbabilities"
+    [selectableCardIds]="vm.selectableCardIds"
+    [phase]="(phase$ | async) ?? initialPhase"
+    (cardClicked)="onCardClicked($event)"
+  />
+</div>

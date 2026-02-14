@@ -1,0 +1,13 @@
+<div class="ai-panel">
+  <div class="ai-header">ðŸ¤– Suggerimento AI</div>
+
+  <div class="spinner" *ngIf="aiLoading$ | async"></div>
+
+  <p class="api-note" *ngIf="!apiConfigured">
+    Configura la API key di OpenAI in environment.ts
+  </p>
+
+  <div class="ai-text">{{ (aiSuggestion$ | async) || 'Nessun suggerimento disponibile' }}</div>
+
+  <button type="button" class="ai-btn" (click)="manualQuery()">Chiedi suggerimento</button>
+</div>

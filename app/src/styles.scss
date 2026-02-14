@@ -1,0 +1,68 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, system-ui, Arial, sans-serif;
+  margin: 16px;
+}
+
+.app-container {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 12px;
+}
+
+.main-content {
+  display: grid;
+  grid-template-columns: 5fr 3fr 3fr;
+  gap: 16px;
+  margin: 12px 0;
+}
+
+@media (max-width: 899px) {
+  .main-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+.banner-warning {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  padding: 8px 16px;
+  text-align: center;
+  font-weight: 700;
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #ddd;
+  border-top-color: #1a73e8;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 16px auto;
+}
+
+@keyframes blink-red-border {
+  0%,
+  100% {
+    outline-color: #e00;
+  }
+
+  50% {
+    outline-color: transparent;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

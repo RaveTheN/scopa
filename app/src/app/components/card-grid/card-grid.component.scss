@@ -1,0 +1,22 @@
+:host {
+  display: block;
+}
+
+.card-grid {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.card-grid th,
+.card-grid td {
+  border: 1px solid #000;
+  text-align: center;
+  padding: 0;
+}
+
+.card-grid th {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 4px;
+}

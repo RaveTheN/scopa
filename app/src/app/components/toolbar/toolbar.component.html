@@ -1,0 +1,40 @@
+<div class="toolbar-row" *ngIf="{ opponent: (opponentCardCount$ | async), turn: (turn$ | async), canUndo: (canUndo$ | async) } as vm">
+  <button
+    type="button"
+    class="toolbar-btn"
+    (click)="cycleOpponentCards(vm.opponent)"
+  >
+    Carte avversario: {{ vm.opponent }}
+  </button>
+
+  <button type="button" class="toolbar-btn reset-btn" (click)="reset()">Reset</button>
+
+  <button
+    type="button"
+    class="toolbar-btn"
+    [disabled]="!vm.canUndo"
+    (click)="undo()"
+  >
+    ↩ Undo
+  </button>
+
+  <button
+    type="button"
+    class="toolbar-btn turn-btn"
+    [class.active]="vm.turn === 'ME'"
+    [disabled]="vm.turn !== null"
+    (click)="setTurn('ME')"
+  >
+    Tu
+  </button>
+
+  <button
+    type="button"
+    class="toolbar-btn turn-btn"
+    [class.active]="vm.turn === 'OPPONENT'"
+    [disabled]="vm.turn !== null"
+    (click)="setTurn('OPPONENT')"
+  >
+    Avversario
+  </button>
+</div>

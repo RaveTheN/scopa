@@ -1,0 +1,38 @@
+:host {
+  display: block;
+}
+
+.toolbar-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.toolbar-btn {
+  padding: 10px 14px;
+  border: 1px solid #000;
+  background: #fff;
+  font-weight: 700;
+  border-radius: 8px;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.reset-btn:hover {
+  border-color: #e00;
+}
+
+.turn-btn {
+  min-width: 100px;
+}
+
+.turn-btn.active {
+  background: #4caf50;
+  color: #fff;
+}

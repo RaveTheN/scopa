@@ -1,0 +1,41 @@
+:host {
+  display: block;
+}
+
+.ai-panel {
+  min-height: 400px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ai-header {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.ai-text {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.ai-btn {
+  padding: 10px 14px;
+  border: 1px solid #000;
+  background: #fff;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.api-note {
+  margin: 0;
+  color: #666;
+  font-style: italic;
+}

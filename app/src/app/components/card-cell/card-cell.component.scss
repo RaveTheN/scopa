@@ -1,0 +1,81 @@
+:host {
+  display: block;
+}
+
+.cell-button {
+  width: 100%;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: #fff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cell-button.table-mode {
+  height: 52px;
+}
+
+.cell-button.hand-mode {
+  height: 44px;
+}
+
+.cell-main {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.cell-sub {
+  font-size: 11px;
+  opacity: 0.8;
+  line-height: 1;
+}
+
+.sub-mine {
+  color: #1a73e8;
+  opacity: 1;
+}
+
+.state-unknown {
+  background: #fff;
+}
+
+.state-in-my-hand {
+  background: #e8f0fe;
+  outline: 2px solid #1a73e8;
+}
+
+.state-on-table {
+  background: #fff;
+  outline: 2px solid #e00;
+}
+
+.state-on-table-blinking {
+  background: #fff;
+  outline: 2px solid #e00;
+  animation: blink-red-border 800ms infinite;
+  cursor: default;
+}
+
+.state-played {
+  background: #c0c0c0;
+  cursor: not-allowed;
+}
+
+.state-combination-candidate {
+  background: #fff;
+  outline: 2px solid #e00;
+  animation: blink-red-border 800ms infinite;
+}
+
+.not-selectable {
+  opacity: 0.4;
+  pointer-events: none;
+  background: #e8e8e8;
+}

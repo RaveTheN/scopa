@@ -1,0 +1,6 @@
+<div class="stats-row" *ngIf="stats$ | async as stats">
+  <div>Denari: {{ stats.denariPlayed }}/10</div>
+  <div>Totale uscite: {{ stats.totalPlayed }}/40</div>
+  <div>Rimaste: {{ stats.remaining }}</div>
+  <div>Fase: {{ stats.phaseLabel }}</div>
+</div>
