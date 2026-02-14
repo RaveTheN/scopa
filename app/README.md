@@ -44,6 +44,6 @@ Copy-Item -Path .\app\dist\scopa\* -Destination . -Recurse -Force
 npm test
 ```
 
-## API OpenAI
+## API AI (Gemini/OpenAI)
 
 Vedi `app/docs/api-setup.md`.

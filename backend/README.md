@@ -1,6 +1,7 @@
-# Backend sicuro OpenAI
+# Backend sicuro AI (Gemini/OpenAI)
 
 Questo backend espone `POST /api/openai/suggestion` e mantiene la API key solo lato server.
+Puoi usare Gemini oppure OpenAI.
 
 ## Setup locale
 
@@ -16,9 +17,13 @@ cd backend
 npm install
 ```
 
-3. Crea `.env` partendo da `.env.example` e imposta `OPENAI_API_KEY`.
+3. Crea `.env` partendo da `.env.example`.
+4. Imposta una delle due key:
+   - `GEMINI_API_KEY` (consigliato, con `AI_PROVIDER=gemini`)
+   - oppure `OPENAI_API_KEY` (con `AI_PROVIDER=openai`)
+5. Se non imposti `AI_PROVIDER`, il backend usa Gemini se trova `GEMINI_API_KEY`, altrimenti OpenAI.
 
-4. Avvia:
+6. Avvia:
 
 ```bash
 npm start
@@ -38,6 +43,12 @@ Devi deployare questo servizio su una piattaforma server/serverless (Render, Rai
 ```ts
 openaiProxyUrl: 'https://TUO-BACKEND/api/openai/suggestion'
 ```
+
+Variabili consigliate su Render:
+
+- `AI_PROVIDER=gemini`
+- `GEMINI_API_KEY=...`
+- `ALLOWED_ORIGINS=https://ravethen.github.io`
 
 ## Sicurezza
 
