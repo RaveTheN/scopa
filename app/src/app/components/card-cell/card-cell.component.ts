@@ -34,7 +34,7 @@ export class CardCellComponent {
 
   get mainText(): string {
     if (this.state === CardState.PLAYED) {
-      return 'âœ“';
+      return '\u2713';
     }
 
     return `${this.card.rank}`;

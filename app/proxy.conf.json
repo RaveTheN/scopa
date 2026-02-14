@@ -1,10 +1,7 @@
 {
   "/api/openai": {
-    "target": "https://api.openai.com",
-    "secure": true,
-    "changeOrigin": true,
-    "pathRewrite": {
-      "^/api/openai": "/v1"
-    }
+    "target": "http://localhost:8787",
+    "secure": false,
+    "changeOrigin": true
   }
 }

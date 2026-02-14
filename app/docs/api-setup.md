@@ -1,22 +1,37 @@
-# Setup API OpenAI
+# Setup OpenAI sicuro
 
-## 1) Crea una API key
+## Principio
+
+La API key **non** deve stare nel frontend Angular.
+Con GitHub Pages (statico), la key va custodita in un backend separato.
+
+## 1) Crea la key OpenAI
+
 1. Vai su https://platform.openai.com/api-keys
-2. Esegui login con il tuo account OpenAI.
-3. Crea una nuova chiave API.
+2. Crea una nuova key.
 
-## 2) Inserisci la chiave nel progetto
-Apri `app/src/environments/environment.ts` e sostituisci:
+## 2) Configura il backend
+
+Usa i file in `backend/`:
+
+1. `cd backend`
+2. `npm install`
+3. copia `.env.example` in `.env`
+4. imposta `OPENAI_API_KEY` nel `.env`
+5. `npm start`
+
+Endpoint disponibile: `POST /api/openai/suggestion`
+
+## 3) Collega il frontend
+
+- In sviluppo: `app/proxy.conf.json` inoltra `/api/openai/*` verso `http://localhost:8787`
+- In produzione: imposta `app/src/environments/environment.prod.ts` con URL completo del backend:
 
 ```ts
-openaiApiKey: 'YOUR_API_KEY_HERE'
+openaiProxyUrl: 'https://TUO-BACKEND/api/openai/suggestion'
 ```
 
-con la tua chiave reale.
+## 4) Sicurezza
 
-Se vuoi usare anche build production, aggiorna anche `app/src/environments/environment.prod.ts`.
-
-## 3) Sicurezza
-- Non committare mai API key reali su Git.
-- Aggiungi `app/src/environments/environment.ts` al `.gitignore` o usa secret management esterno.
-- Considera un backend/proxy sicuro per evitare di esporre chiavi nel frontend.
+- Non committare mai `.env` o key reali.
+- Se una key e stata condivisa in chat/commit/log, revocala e rigenerala subito.

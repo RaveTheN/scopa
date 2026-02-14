@@ -11,6 +11,14 @@ npm start
 
 `npm start` usa `proxy.conf.json`.
 
+Per i suggerimenti AI serve anche il backend:
+
+```bash
+cd ../backend
+npm install
+npm start
+```
+
 ## Build
 
 ```bash

@@ -79,14 +79,14 @@ export class AISuggestionService implements OnDestroy {
   }
 
   isApiConfigured(): boolean {
-    const key = environment.openaiApiKey.trim();
-    return key.length > 0 && key !== 'YOUR_API_KEY_HERE';
+    const endpoint = environment.openaiProxyUrl.trim();
+    return endpoint.length > 0 && endpoint !== 'YOUR_BACKEND_ENDPOINT_HERE';
   }
 
   private executeQuery(state: GameState, probabilities: Map<number, number>): Observable<void> {
     if (!this.isApiConfigured()) {
       this.gameStateService.setAiLoading(false);
-      this.gameStateService.setAiSuggestion('Configura la API key di OpenAI in environment.ts');
+      this.gameStateService.setAiSuggestion('Configura endpoint backend OpenAI in environment.ts');
       return of(void 0);
     }
 
