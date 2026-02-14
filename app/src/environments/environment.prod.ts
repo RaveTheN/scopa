@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  openaiProxyUrl: 'https://scopa-backend-v2bx.onrender.com'
+  openaiProxyUrl: 'https://scopa-backend-v2bx.onrender.com/api/openai/suggestion'
 };
