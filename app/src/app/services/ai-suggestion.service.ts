@@ -119,18 +119,11 @@ export class AISuggestionService implements OnDestroy {
   private buildQueryInput(state: GameState, probabilities: Map<number, number>): OpenAiQueryInput {
     const probabilitiesByRank: Record<number, number> = {};
     for (let rank = 1; rank <= 10; rank += 1) {
-      probabilitiesByRank[rank] = probabilities.get(rank) ?? 0;
+      probabilitiesByRank[rank] = this.roundTo6(probabilities.get(rank) ?? 0);
     }
 
-    const playedStates = new Set<CardState>([
-      CardState.PLAYED,
-      CardState.ON_TABLE,
-      CardState.ON_TABLE_BLINKING,
-      CardState.COMBINATION_CANDIDATE
-    ]);
-
     const playedCards = Object.entries(state.cardStates)
-      .filter(([, cardState]) => playedStates.has(cardState))
+      .filter(([, cardState]) => cardState === CardState.PLAYED)
       .map(([cardId]) => this.cardLabel(cardId));
 
     const unknownCardsCount = Object.values(state.cardStates).filter((cardState) => cardState === CardState.UNKNOWN).length;
@@ -152,7 +145,10 @@ export class AISuggestionService implements OnDestroy {
   }
 
   private buildTriggerKey(state: GameState, probabilities: Map<number, number>): string {
-    const probabilityVector = Array.from({ length: 10 }, (_, index) => probabilities.get(index + 1) ?? 0);
+    const probabilityVector = Array.from(
+      { length: 10 },
+      (_, index) => this.roundTo6(probabilities.get(index + 1) ?? 0)
+    );
 
     return JSON.stringify({
       cardStates: state.cardStates,
@@ -205,5 +201,9 @@ export class AISuggestionService implements OnDestroy {
       card: this.cardLabel(playedCard.id),
       captures
     };
+  }
+
+  private roundTo6(value: number): number {
+    return Math.round((value + Number.EPSILON) * 1_000_000) / 1_000_000;
   }
 }

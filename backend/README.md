@@ -20,7 +20,8 @@ npm install
 4. Imposta:
    - `OPENAI_API_KEY=...`
    - opzionale `OPENAI_MODEL=gpt-4o-mini`
-   - opzionale `AI_MAX_OUTPUT_TOKENS=256` (evita JSON troncati)
+   - opzionale `AI_MAX_OUTPUT_TOKENS=384` (piu spazio per motivazione strategica)
+   - opzionale `OPENAI_REASONING_EFFORT=minimal` (consigliato con modelli reasoning, es. `gpt-5-mini`)
 
 5. Avvia:
 
@@ -47,7 +48,8 @@ Variabili consigliate su Render:
 
 - `OPENAI_API_KEY=...`
 - `OPENAI_MODEL=gpt-4o-mini`
-- `AI_MAX_OUTPUT_TOKENS=256`
+- `AI_MAX_OUTPUT_TOKENS=384`
+- `OPENAI_REASONING_EFFORT=minimal`
 - `ALLOWED_ORIGINS=https://ravethen.github.io`
 
 ## Modello fine-tuned (opzionale)
@@ -87,7 +89,8 @@ Formati input supportati:
   - `Carta consigliata`
   - `Confidenza` (se disponibile)
   - `Motivo`
-  - `Attenzione` (max 2 note)
+  - `Attenzione` (max 3 note)
+  - `Prossimo turno` (se disponibile)
 
 ## Sicurezza
 

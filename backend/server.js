@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -9,32 +9,43 @@ const SYSTEM_PROMPT = `Sei un assistente strategico per Scopa classica italiana 
 
 REGOLE DI PRESA (TASSATIVE):
 1. Si gioca UNA carta dalla mano.
-2. Presa singola: se sul tavolo c'è una carta con lo STESSO valore, DEVI prenderla (obbligatoria, ha priorità sulla presa a somma).
-3. Presa a somma: se NON c'è carta singola di pari valore, puoi prendere un insieme di carte la cui somma è UGUALE al valore della carta giocata.
-4. Se non puoi fare nessuna presa, scarti la carta sul tavolo.
-5. Scopa: se prendi TUTTE le carte dal tavolo, è una Scopa (1 punto extra).
-6. NON ESISTE la regola del 15. NON ESISTE nessuna soglia o somma target diversa dal valore della carta giocata. Non menzionare mai il 15 o qualsiasi altro valore sopra il 10 o qualsiasi somma che faccia più di 10.
+2. Presa singola: se sul tavolo c'e una carta con lo STESSO valore, DEVI prenderla (obbligatoria, prioritaria sulla presa a somma).
+3. Se sul tavolo ci sono due o piu carte con lo stesso valore della carta giocata, devi prenderne UNA di quelle (a scelta), mai una somma alternativa.
+4. Presa a somma: solo se NON c'e nessuna carta singola di pari valore, puoi prendere un insieme di carte la cui somma e UGUALE al valore della carta giocata.
+5. Se non puoi fare nessuna presa, scarti la carta sul tavolo.
+6. Scopa: se prendi TUTTE le carte dal tavolo, e una Scopa (1 punto extra).
+7. NON ESISTE la regola del 15. NON ESISTE nessuna soglia o somma target diversa dal valore della carta giocata.
 
 VALORI: Asso=1, 2-7=valore facciale, Donna=8, Cavallo=9, Re=10.
 
-IMPORTANTE: ti vengono fornite le mosse legali già validate dal motore di gioco. Il campo "Mosse legali disponibili" elenca per ogni carta in mano le possibili prese. Devi SOLO scegliere tra quelle. Non ricalcolare le prese. Se una carta ha "scarto (nessuna presa possibile)" significa che giocandola non prendi niente.
+IMPORTANTE:
+- Ti vengono fornite le mosse legali gia validate dal motore di gioco.
+- Devi scegliere SOLO tra le mosse legali.
+- Non ricalcolare regole o combinazioni oltre quanto dato in input.
 
-OBIETTIVI STRATEGICI (in ordine di priorità):
-1. Fare Scope (svuotare il tavolo)
-2. Prendere il 7 di Denari (Settebello)
-3. Massimizzare carte di Denari (>=6 su 10 = punto)
-4. Massimizzare numero totale di carte (>=21 su 40 = punto)
-5. Primiera: preferire 7 > 6 > Asso > 5 > 4 > 3 > 2 > figure
-6. Quando scarti senza prendere: minimizza il rischio che l'avversario faccia Scopa al turno successivo. Evita di lasciare sul tavolo combinazioni facili. Scarta preferibilmente figure (valore alto, difficili da sommare per l'avversario) piuttosto che carte basse.
-7. Usa le probabilità fornite per stimare cosa ha in mano l'avversario, ridurre il rischio di regalare scopa, aumentare il controllo sulle prese future.
+OBIETTIVI STRATEGICI (in ordine):
+1. Fare Scope.
+2. Prendere il 7 di Denari (Settebello).
+3. Massimizzare carte di Denari.
+4. Massimizzare numero totale di carte.
+5. Primiera: 7 > 6 > Asso > 5 > 4 > 3 > 2 > figure.
+6. Evitare di regalare Scopa al turno successivo.
+7. Usare le probabilita avversarie per pianificare difesa e controllo.
+
+PROFONDITA DI RAGIONAMENTO:
+- Valuta sempre la mossa corrente + risposta avversaria piu probabile + tua replica successiva.
+- Bilancia attacco (punti immediati) e difesa (riduzione rischio al turno dopo).
+- Se ci sono almeno 2 mosse legali, confronta esplicitamente la migliore con almeno una alternativa.
 
 FORMATO RISPOSTA: JSON rigoroso con questi campi:
 - "best_card": stringa, DEVE essere una delle carte elencate nelle mosse legali (copiala esattamente).
 - "confidence": stringa breve ("alta", "media", "bassa").
-- "short_reason": stringa, massimo 2 frasi brevi che spiegano la scelta.
-- "risk_notes": array di stringhe, massimo 2 voci brevi su rischi o avvertenze.
+- "short_reason": 3-5 frasi concise ma concrete; includi vantaggio immediato, rischio difensivo e piano a due mosse.
+- "alternative_rejected": stringa breve (1-2 frasi) su una mossa alternativa legale e perche e peggiore.
+- "risk_notes": array di 1-3 stringhe brevi su rischi reali.
+- "next_turn_outlook": stringa breve (1-2 frasi) su cosa potrebbe fare l'avversario e contromisura.
 
-Non aggiungere testo fuori dal JSON. Non spiegare le regole. Non fare analisi lunghe. Solo il JSON.
+Non aggiungere testo fuori dal JSON.
 Rispondi con un singolo oggetto JSON, senza markdown, senza backticks.
 Se non puoi decidere, scegli comunque una best_card valida e confidence=bassa.`;
 
@@ -87,10 +98,33 @@ function formatProbabilities(probabilitiesByRank) {
 
   for (let rank = 1; rank <= 10; rank += 1) {
     const value = Number(probabilitiesByRank?.[rank] || 0);
-    parts.push(`${rank}: ${Math.round(value * 100)}%`);
+    parts.push(`${rank}: ${value.toFixed(6)}`);
   }
 
   return parts.join(' | ');
+}
+
+function formatTopProbabilities(probabilitiesByRank, limit = 3) {
+  const ordered = [];
+
+  for (let rank = 1; rank <= 10; rank += 1) {
+    ordered.push({
+      rank,
+      value: Number(probabilitiesByRank?.[rank] || 0)
+    });
+  }
+
+  ordered.sort((a, b) => {
+    if (b.value !== a.value) {
+      return b.value - a.value;
+    }
+    return a.rank - b.rank;
+  });
+
+  return ordered
+    .slice(0, limit)
+    .map((item) => `${item.rank} (${item.value.toFixed(6)})`)
+    .join(' | ');
 }
 
 function normalizeLegalMoves(legalMoves) {
@@ -144,7 +178,8 @@ function buildUserPrompt(payload) {
     `Carte sul tavolo: ${Array.isArray(cardsOnTable) && cardsOnTable.length ? cardsOnTable.join(', ') : 'nessuna'}`,
     `Carte gia giocate/uscite: ${Array.isArray(playedCards) && playedCards.length ? playedCards.join(', ') : 'nessuna'}`,
     `Carte sconosciute: ${Number(unknownCardsCount) || 0}`,
-    `Probabilita per valore (%): ${formatProbabilities(probabilitiesByRank)}`,
+    `Probabilita per valore (0..1, 6 decimali): ${formatProbabilities(probabilitiesByRank)}`,
+    `Top valori probabili avversario: ${formatTopProbabilities(probabilitiesByRank, 3)}`,
     `Carte avversario: ${Number(opponentCardCount) || 0}`,
     'Mosse legali disponibili (gia validate dal motore di gioco):',
     formatLegalMoves(legalMoves),
@@ -152,7 +187,48 @@ function buildUserPrompt(payload) {
   ].join('\n');
 }
 
-function buildOpenAiRequestBody(model, systemPrompt, userPrompt, maxOutputTokens, forceJson) {
+function resolveOpenAiTokenParameter(model) {
+  const normalized = (model || '').trim().toLowerCase();
+  if (normalized.startsWith('gpt-5')) {
+    return 'max_completion_tokens';
+  }
+
+  return 'max_tokens';
+}
+
+function resolveOpenAiTemperature(model) {
+  const normalized = (model || '').trim().toLowerCase();
+  if (normalized.startsWith('gpt-5')) {
+    return null;
+  }
+
+  return 0.2;
+}
+
+function resolveOpenAiReasoningEffort(model) {
+  const configured = (process.env.OPENAI_REASONING_EFFORT || '').trim().toLowerCase();
+  if (configured) {
+    return configured;
+  }
+
+  const normalized = (model || '').trim().toLowerCase();
+  if (normalized.startsWith('gpt-5')) {
+    return 'minimal';
+  }
+
+  return null;
+}
+
+function buildOpenAiRequestBody(
+  model,
+  systemPrompt,
+  userPrompt,
+  maxOutputTokens,
+  forceJson,
+  tokenParameter,
+  temperature,
+  reasoningEffort
+) {
   const body = {
     model,
     messages: [
@@ -164,10 +240,22 @@ function buildOpenAiRequestBody(model, systemPrompt, userPrompt, maxOutputTokens
         role: 'user',
         content: userPrompt
       }
-    ],
-    temperature: 0.1,
-    max_tokens: maxOutputTokens
+    ]
   };
+
+  if (typeof temperature === 'number') {
+    body.temperature = temperature;
+  }
+
+  if (typeof reasoningEffort === 'string' && reasoningEffort.trim()) {
+    body.reasoning_effort = reasoningEffort.trim();
+  }
+
+  if (tokenParameter === 'max_completion_tokens') {
+    body.max_completion_tokens = maxOutputTokens;
+  } else {
+    body.max_tokens = maxOutputTokens;
+  }
 
   if (forceJson) {
     body.response_format = { type: 'json_object' };
@@ -185,6 +273,55 @@ function isJsonOutputUnsupportedError(statusCode, errorText) {
   return normalized.includes('response_format');
 }
 
+function isTokenParameterUnsupportedError(statusCode, errorText) {
+  if (statusCode !== 400 || typeof errorText !== 'string') {
+    return false;
+  }
+
+  const normalized = errorText.toLowerCase();
+  return normalized.includes('unsupported parameter')
+    && (normalized.includes('max_tokens') || normalized.includes('max_completion_tokens'));
+}
+
+function isTemperatureUnsupportedError(statusCode, errorText) {
+  if (statusCode !== 400 || typeof errorText !== 'string') {
+    return false;
+  }
+
+  const normalized = errorText.toLowerCase();
+  return normalized.includes('temperature')
+    && (normalized.includes('unsupported') || normalized.includes('only the default'));
+}
+
+function isReasoningEffortUnsupportedError(statusCode, errorText) {
+  if (statusCode !== 400 || typeof errorText !== 'string') {
+    return false;
+  }
+
+  const normalized = errorText.toLowerCase();
+  return normalized.includes('reasoning_effort')
+    && (normalized.includes('unsupported') || normalized.includes('invalid'));
+}
+
+function resolveTokenParameterFromError(errorText, currentTokenParameter) {
+  if (typeof errorText !== 'string') {
+    return currentTokenParameter;
+  }
+
+  const normalized = errorText.toLowerCase();
+  if (normalized.includes('max_completion_tokens')) {
+    return 'max_completion_tokens';
+  }
+
+  if (normalized.includes('max_tokens')) {
+    return 'max_tokens';
+  }
+
+  return currentTokenParameter === 'max_tokens'
+    ? 'max_completion_tokens'
+    : 'max_tokens';
+}
+
 async function queryOpenAi(userPrompt, payload) {
   const apiKey = (process.env.OPENAI_API_KEY || '').trim();
   if (!apiKey) {
@@ -192,29 +329,66 @@ async function queryOpenAi(userPrompt, payload) {
   }
 
   const model = (process.env.OPENAI_MODEL || 'gpt-4o-mini').trim();
-  const maxOutputTokens = Number(process.env.AI_MAX_OUTPUT_TOKENS || 256);
-  let response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const maxOutputTokens = Number(process.env.AI_MAX_OUTPUT_TOKENS || 384);
+  const endpoint = 'https://api.openai.com/v1/chat/completions';
+  let tokenParameter = resolveOpenAiTokenParameter(model);
+  let temperature = resolveOpenAiTemperature(model);
+  let reasoningEffort = resolveOpenAiReasoningEffort(model);
+  const fetchCompletion = (forceJson) => fetch(endpoint, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(buildOpenAiRequestBody(model, SYSTEM_PROMPT, userPrompt, maxOutputTokens, true))
+    body: JSON.stringify(
+      buildOpenAiRequestBody(
+        model,
+        SYSTEM_PROMPT,
+        userPrompt,
+        maxOutputTokens,
+        forceJson,
+        tokenParameter,
+        temperature,
+        reasoningEffort
+      )
+    )
   });
 
+  let response = await fetchCompletion(true);
+
   if (!response.ok) {
-    const firstErrorText = await response.text();
+    let firstErrorText = await response.text();
+
+    if (isTokenParameterUnsupportedError(response.status, firstErrorText)) {
+      tokenParameter = resolveTokenParameterFromError(firstErrorText, tokenParameter);
+      response = await fetchCompletion(true);
+      if (!response.ok) {
+        firstErrorText = await response.text();
+      }
+    }
+
+    if (!response.ok && isTemperatureUnsupportedError(response.status, firstErrorText)) {
+      temperature = null;
+      response = await fetchCompletion(true);
+      if (!response.ok) {
+        firstErrorText = await response.text();
+      }
+    }
+
+    if (!response.ok && isReasoningEffortUnsupportedError(response.status, firstErrorText)) {
+      reasoningEffort = null;
+      response = await fetchCompletion(true);
+      if (!response.ok) {
+        firstErrorText = await response.text();
+      }
+    }
+
     const shouldRetryWithoutJsonFormat = isJsonOutputUnsupportedError(response.status, firstErrorText);
 
-    if (shouldRetryWithoutJsonFormat) {
-      response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(buildOpenAiRequestBody(model, SYSTEM_PROMPT, userPrompt, maxOutputTokens, false))
-      });
+    if (response.ok) {
+      // no-op, proceed below
+    } else if (shouldRetryWithoutJsonFormat) {
+      response = await fetchCompletion(false);
     } else {
       throw createError(response.status, `Errore OpenAI: ${firstErrorText}`);
     }
@@ -226,8 +400,142 @@ async function queryOpenAi(userPrompt, payload) {
   }
 
   const data = await response.json();
-  const rawSuggestion = data?.choices?.[0]?.message?.content?.trim() || '';
+  const rawSuggestion = extractOpenAiText(data);
+  if (!rawSuggestion || !rawSuggestion.trim()) {
+    throw createError(502, summarizeEmptyOpenAiResponse(data));
+  }
+
   return formatFinalSuggestion(rawSuggestion, payload?.legalMoves);
+}
+
+function extractOpenAiText(data) {
+  if (!data || typeof data !== 'object') {
+    return '';
+  }
+
+  const message = data?.choices?.[0]?.message;
+  if (message) {
+    if (typeof message.content === 'string') {
+      return message.content.trim();
+    }
+
+    if (message.content && typeof message.content === 'object' && !Array.isArray(message.content)) {
+      if (typeof message.content.text === 'string' && message.content.text.trim()) {
+        return message.content.text.trim();
+      }
+
+      if (typeof message.content.content === 'string' && message.content.content.trim()) {
+        return message.content.content.trim();
+      }
+
+      if (Array.isArray(message.content.parts)) {
+        const partChunks = [];
+        for (const part of message.content.parts) {
+          if (typeof part === 'string' && part.trim()) {
+            partChunks.push(part.trim());
+            continue;
+          }
+
+          if (typeof part?.text === 'string' && part.text.trim()) {
+            partChunks.push(part.text.trim());
+            continue;
+          }
+
+          if (typeof part?.content === 'string' && part.content.trim()) {
+            partChunks.push(part.content.trim());
+          }
+        }
+
+        if (partChunks.length > 0) {
+          return partChunks.join('\n');
+        }
+      }
+    }
+
+    if (Array.isArray(message.content)) {
+      const chunks = [];
+      for (const part of message.content) {
+        if (typeof part === 'string') {
+          if (part.trim()) {
+            chunks.push(part.trim());
+          }
+          continue;
+        }
+
+        if (typeof part?.text === 'string' && part.text.trim()) {
+          chunks.push(part.text.trim());
+          continue;
+        }
+
+        if (typeof part?.content === 'string' && part.content.trim()) {
+          chunks.push(part.content.trim());
+        }
+      }
+
+      if (chunks.length > 0) {
+        return chunks.join('\n');
+      }
+    }
+
+    if (typeof message.refusal === 'string' && message.refusal.trim()) {
+      return message.refusal.trim();
+    }
+  }
+
+  if (typeof data?.choices?.[0]?.text === 'string') {
+    return data.choices[0].text.trim();
+  }
+
+  if (typeof data?.output_text === 'string') {
+    return data.output_text.trim();
+  }
+
+  if (Array.isArray(data?.output)) {
+    const chunks = [];
+    for (const item of data.output) {
+      if (!Array.isArray(item?.content)) {
+        continue;
+      }
+
+      for (const part of item.content) {
+        if (typeof part?.text === 'string' && part.text.trim()) {
+          chunks.push(part.text.trim());
+          continue;
+        }
+        if (typeof part?.content === 'string' && part.content.trim()) {
+          chunks.push(part.content.trim());
+        }
+      }
+    }
+
+    if (chunks.length > 0) {
+      return chunks.join('\n');
+    }
+  }
+
+  return '';
+}
+
+function summarizeEmptyOpenAiResponse(data) {
+  const choice = data?.choices?.[0] || {};
+  const finishReason = choice?.finish_reason || 'n/d';
+  const completionTokens = data?.usage?.completion_tokens ?? 'n/d';
+  const promptTokens = data?.usage?.prompt_tokens ?? 'n/d';
+  const totalTokens = data?.usage?.total_tokens ?? 'n/d';
+  const reasoningTokens = data?.usage?.completion_tokens_details?.reasoning_tokens ?? 'n/d';
+
+  const messageKeys = choice?.message && typeof choice.message === 'object'
+    ? Object.keys(choice.message).join(', ')
+    : 'n/d';
+
+  return [
+    'Risposta vuota dal modello OpenAI.',
+    `finish_reason=${finishReason}.`,
+    `usage(prompt=${promptTokens}, completion=${completionTokens}, total=${totalTokens}, reasoning=${reasoningTokens}).`,
+    `message_keys=${messageKeys}.`,
+    'Con modelli reasoning (es. gpt-5-mini) i token possono essere consumati nel reasoning interno.',
+    'Imposta OPENAI_REASONING_EFFORT=minimal e riduci la lunghezza del prompt; aumentare solo i token spesso non basta.'
+  ].join(' ');
 }
 
 function safeParseJson(text) {
@@ -291,6 +599,31 @@ function cleanLine(text, maxLength) {
   return `${compact.slice(0, Math.max(0, maxLength - 3))}...`;
 }
 
+function cleanBlock(text, maxLength) {
+  if (typeof text !== 'string') {
+    return '';
+  }
+
+  const normalized = stripFormattingArtifacts(text)
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+
+  if (!normalized) {
+    return '';
+  }
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
 function normalizeBestCard(candidate, legalMoves) {
   if (typeof candidate !== 'string') {
     return '';
@@ -322,30 +655,38 @@ function formatFinalSuggestion(rawSuggestion, legalMoves) {
 
   if (!parsed || typeof parsed !== 'object') {
     if (!sanitizedRawSuggestion || !sanitizedRawSuggestion.trim()) {
-      return 'Nessun suggerimento disponibile.';
+      throw createError(502, 'Risposta vuota dal modello OpenAI.');
     }
 
-    const fallbackCard = normalizedMoves[0]?.card || '';
-    const fallbackReason = cleanLine(sanitizedRawSuggestion, 240) || 'Risposta non strutturata dal modello.';
-    if (!fallbackCard) {
-      return fallbackReason;
-    }
-
-    return [
-      `Carta consigliata: ${fallbackCard}`,
-      `Motivo: ${fallbackReason}`
-    ].join('\n');
+    const invalidPayload = cleanBlock(sanitizedRawSuggestion, 700) || 'Risposta non strutturata dal modello.';
+    throw createError(502, `Risposta AI non valida (JSON mancante): ${invalidPayload}`);
   }
 
-  const bestCard = normalizeBestCard(parsed.best_card, normalizedMoves) || normalizedMoves[0]?.card || 'N/D';
+  const bestCard = normalizeBestCard(parsed.best_card, normalizedMoves);
+  if (!bestCard) {
+    const provided = cleanLine(parsed.best_card || '', 80);
+    const reason = provided
+      ? `best_card non valida: "${provided}".`
+      : 'best_card mancante o non valida.';
+    throw createError(502, `Risposta AI non valida: ${reason}`);
+  }
+
   const confidence = cleanLine(parsed.confidence || '', 24);
-  const shortReason = cleanLine(parsed.short_reason || parsed.reason || '', 240);
+  const shortReason = cleanBlock(parsed.short_reason || parsed.reason || '', 900);
+  const alternativeRejected = cleanBlock(
+    parsed.alternative_rejected || parsed.counterfactual || parsed.why_not || '',
+    320
+  );
   const riskNotes = Array.isArray(parsed.risk_notes)
     ? parsed.risk_notes
-      .map((item) => cleanLine(item, 100))
+      .map((item) => cleanLine(item, 140))
       .filter(Boolean)
-      .slice(0, 2)
+      .slice(0, 3)
     : [];
+  const nextTurnOutlook = cleanLine(
+    parsed.next_turn_outlook || parsed.next_turn_plan || '',
+    220
+  );
 
   const lines = [`Carta consigliata: ${bestCard}`];
 
@@ -357,8 +698,16 @@ function formatFinalSuggestion(rawSuggestion, legalMoves) {
     lines.push(`Motivo: ${shortReason}`);
   }
 
+  if (alternativeRejected) {
+    lines.push(`Alternativa scartata: ${alternativeRejected}`);
+  }
+
   if (riskNotes.length > 0) {
     lines.push(`Attenzione: ${riskNotes.join(' | ')}`);
+  }
+
+  if (nextTurnOutlook) {
+    lines.push(`Prossimo turno: ${nextTurnOutlook}`);
   }
 
   return lines.join('\n');
