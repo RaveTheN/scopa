@@ -139,6 +139,11 @@ export class GameStateService {
       if (current === CardState.UNKNOWN && draft.myHand.length < 3) {
         draft.cardStates[cardId] = CardState.IN_MY_HAND;
         draft.myHand = [...draft.myHand, cardId];
+
+        if (draft.opponentCardCount === 0) {
+          draft.opponentCardCount = 3;
+        }
+
         return true;
       }
 

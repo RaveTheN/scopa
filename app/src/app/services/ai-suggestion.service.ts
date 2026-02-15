@@ -1,5 +1,6 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import {
+  BehaviorSubject,
   Observable,
   Subject,
   combineLatest,
@@ -25,6 +26,7 @@ import {
 import { findCombinations } from '../utils/combinations.util';
 import { GameStateService } from './game-state.service';
 import { OpenAIService, OpenAiLegalMove, OpenAiQueryInput } from './openai.service';
+import { LocalStorageService } from './local-storage.service';
 import { ProbabilityService } from './probability.service';
 
 @Injectable({
@@ -32,6 +34,9 @@ import { ProbabilityService } from './probability.service';
 })
 export class AISuggestionService implements OnDestroy {
   private readonly destroy$ = new Subject<void>();
+  private readonly autoQueryStorageKey = 'ai_auto_query_enabled';
+  private readonly autoQueryEnabledSubject = new BehaviorSubject<boolean>(true);
+  readonly autoQueryEnabled$ = this.autoQueryEnabledSubject.asObservable();
 
   private latestState: GameState | null = null;
   private latestProbabilities = new Map<number, number>();
@@ -39,24 +44,33 @@ export class AISuggestionService implements OnDestroy {
   constructor(
     private readonly gameStateService: GameStateService,
     private readonly probabilityService: ProbabilityService,
-    private readonly openAiService: OpenAIService
+    private readonly openAiService: OpenAIService,
+    private readonly localStorageService: LocalStorageService
   ) {
+    const saved = this.localStorageService.load<boolean>(this.autoQueryStorageKey);
+    if (typeof saved === 'boolean') {
+      this.autoQueryEnabledSubject.next(saved);
+    }
+
     combineLatest([
       this.gameStateService.state,
-      this.probabilityService.probabilities$
+      this.probabilityService.probabilities$,
+      this.autoQueryEnabledSubject
     ]).pipe(
       takeUntil(this.destroy$),
       tap(([state, probabilities]) => {
         this.latestState = state;
         this.latestProbabilities = probabilities;
       }),
-      map(([state, probabilities]) => ({
+      map(([state, probabilities, autoQueryEnabled]) => ({
         state,
         probabilities,
-        key: this.buildTriggerKey(state, probabilities)
+        autoQueryEnabled,
+        key: this.buildTriggerKey(state, probabilities, autoQueryEnabled)
       })),
       distinctUntilChanged((a, b) => a.key === b.key),
-      filter(({ state }) =>
+      filter(({ state, autoQueryEnabled }) =>
+        autoQueryEnabled &&
         state.turn === 'ME' &&
         state.myHand.length > 0 &&
         state.phase === GamePhase.PLAYING
@@ -78,6 +92,15 @@ export class AISuggestionService implements OnDestroy {
     }
 
     this.executeQuery(state, this.latestProbabilities).subscribe();
+  }
+
+  setAutoQueryEnabled(enabled: boolean): void {
+    if (this.autoQueryEnabledSubject.value === enabled) {
+      return;
+    }
+
+    this.autoQueryEnabledSubject.next(enabled);
+    this.localStorageService.save(this.autoQueryStorageKey, enabled);
   }
 
   isApiConfigured(): boolean {
@@ -144,7 +167,11 @@ export class AISuggestionService implements OnDestroy {
     };
   }
 
-  private buildTriggerKey(state: GameState, probabilities: Map<number, number>): string {
+  private buildTriggerKey(
+    state: GameState,
+    probabilities: Map<number, number>,
+    autoQueryEnabled: boolean
+  ): string {
     const probabilityVector = Array.from(
       { length: 10 },
       (_, index) => this.roundTo6(probabilities.get(index + 1) ?? 0)
@@ -159,7 +186,8 @@ export class AISuggestionService implements OnDestroy {
       opponentCardCount: state.opponentCardCount,
       pendingPlayedCard: state.pendingPlayedCard,
       selectedCombination: state.selectedCombination,
-      probabilityVector
+      probabilityVector,
+      autoQueryEnabled
     });
   }
 

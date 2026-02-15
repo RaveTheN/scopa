@@ -123,6 +123,15 @@ describe('GameStateService', () => {
     expect(state.opponentCardCount).toBe(0);
   });
 
+  it('refills opponent cards to 3 when my hand increases and opponent is at 0', () => {
+    service.setOpponentCardCount(0);
+    service.clickHandCard(createCardId(Suit.Denari, 2));
+
+    const state = service.getCurrentState();
+    expect(state.myHand).toContain(createCardId(Suit.Denari, 2));
+    expect(state.opponentCardCount).toBe(3);
+  });
+
   it('decrements on opponent play and refills only on ME -> OPPONENT when count is 0', () => {
     service.clickTableCard(createCardId(Suit.Denari, 1));
     service.clickTableCard(createCardId(Suit.Coppe, 2));

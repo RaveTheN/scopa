@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { AfterViewInit, Component, OnDestroy } from '@angular/core';
 import { combineLatest, map } from 'rxjs';
 import { AISuggestionService } from './services/ai-suggestion.service';
 import { GameStateService } from './services/game-state.service';
@@ -35,9 +35,10 @@ interface TableViewModel {
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
-export class AppComponent {
+export class AppComponent implements AfterViewInit, OnDestroy {
   readonly gamePhase = GamePhase;
   readonly phase$ = this.gameStateService.phase;
+  private aiPanelInitTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly tableVm$ = combineLatest([
     this.gameStateService.state,
@@ -66,6 +67,17 @@ export class AppComponent {
     void this.aiSuggestionService;
   }
 
+  ngAfterViewInit(): void {
+    this.aiPanelInitTimer = setTimeout(() => this.initAiPanelAutoHeight(), 0);
+  }
+
+  ngOnDestroy(): void {
+    if (this.aiPanelInitTimer) {
+      clearTimeout(this.aiPanelInitTimer);
+      this.aiPanelInitTimer = null;
+    }
+  }
+
   onTableCardClicked(cardId: string, phase: GamePhase): void {
     if (phase === GamePhase.CHOOSE_COMBINATION) {
       this.gameStateService.selectCombinationCard(cardId);
@@ -73,6 +85,69 @@ export class AppComponent {
     }
 
     this.gameStateService.clickTableCard(cardId);
+  }
+
+  private initAiPanelAutoHeight(attempt = 0): void {
+    const panel = this.getAiPanelElement();
+    if (!panel) {
+      if (attempt < 40) {
+        this.aiPanelInitTimer = setTimeout(() => this.initAiPanelAutoHeight(attempt + 1), 100);
+      }
+      return;
+    }
+
+    this.updateAiTextHeight();
+    this.aiPanelInitTimer = null;
+  }
+
+  private getAiPanelElement(): HTMLElement | null {
+    return document.querySelector('.ai-panel');
+  }
+
+  private updateAiTextHeight(): void {
+    const panel = this.getAiPanelElement();
+    if (!panel) {
+      return;
+    }
+
+    const text = panel.querySelector('.ai-text');
+    if (!(text instanceof HTMLElement)) {
+      return;
+    }
+
+    const style = window.getComputedStyle(panel);
+    const paddingTop = Number.parseFloat(style.paddingTop) || 0;
+    const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
+    const gap = Number.parseFloat(style.rowGap || style.gap || '0') || 0;
+
+    const children = Array.from(panel.children).filter(
+      (child): child is HTMLElement => child instanceof HTMLElement
+    );
+
+    const visibleChildren = children.filter((child) => this.isVisibleElement(child));
+    if (visibleChildren.length === 0) {
+      return;
+    }
+
+    const occupiedHeight = visibleChildren
+      .filter((child) => child !== text)
+      .reduce((sum, child) => sum + child.getBoundingClientRect().height, 0);
+
+    const innerPanelHeight = panel.getBoundingClientRect().height - paddingTop - paddingBottom;
+    const gapsHeight = gap * Math.max(0, visibleChildren.length - 1);
+    const residualHeight = Math.floor(innerPanelHeight - occupiedHeight - gapsHeight);
+    const safeHeight = Math.max(80, residualHeight);
+
+    text.style.height = `${safeHeight}px`;
+  }
+
+  private isVisibleElement(element: HTMLElement): boolean {
+    if (element === document.body) {
+      return false;
+    }
+
+    const style = window.getComputedStyle(element);
+    return style.display !== 'none' && style.visibility !== 'hidden';
   }
 
   private buildSelectableSet(state: GameState): Set<string> {

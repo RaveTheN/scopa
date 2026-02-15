@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { map } from 'rxjs';
 import { CARD_BY_ID, CardState, GamePhase, Suit } from '../../models/card.model';
+import { AISuggestionService } from '../../services/ai-suggestion.service';
 import { GameStateService } from '../../services/game-state.service';
 
 interface StatsViewModel {
@@ -24,6 +25,7 @@ interface StatsViewModel {
   styleUrls: ['./stats-panel.component.scss']
 })
 export class StatsPanelComponent {
+  readonly autoQueryEnabled$ = this.aiSuggestionService.autoQueryEnabled$;
   readonly stats$ = this.gameStateService.state.pipe(
     map((state): StatsViewModel => {
       const playedIds = Object.entries(state.cardStates)
@@ -63,7 +65,15 @@ export class StatsPanelComponent {
     })
   );
 
-  constructor(private readonly gameStateService: GameStateService) {}
+  constructor(
+    private readonly gameStateService: GameStateService,
+    private readonly aiSuggestionService: AISuggestionService
+  ) {}
+
+  onAutoQueryToggle(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    this.aiSuggestionService.setAutoQueryEnabled(!!target?.checked);
+  }
 
   private toPhaseLabel(phase: GamePhase): string {
     if (phase === GamePhase.INITIAL_FOUR) {

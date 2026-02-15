@@ -7,5 +7,16 @@
   <div>Rimaste: {{ stats.remaining }}</div>
   <div>Prese tue: {{ stats.myCaptured }}</div>
   <div>Prese avversario: {{ stats.opponentCaptured }}</div>
+  <label class="auto-ai-toggle" for="auto-ai-toggle">
+    <input
+      id="auto-ai-toggle"
+      type="checkbox"
+      class="auto-ai-toggle-input"
+      [checked]="(autoQueryEnabled$ | async) ?? true"
+      (change)="onAutoQueryToggle($event)"
+    />
+    <span class="auto-ai-toggle-slider" aria-hidden="true"></span>
+    <span>AI auto</span>
+  </label>
   <div>Fase: {{ stats.phaseLabel }}</div>
 </div>
