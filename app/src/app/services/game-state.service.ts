@@ -402,9 +402,11 @@ export class GameStateService {
   }
 
   private setTurnWithOpponentRefill(draft: GameState, turn: Exclude<Turn, null>): void {
+    const previousTurn = draft.turn;
     draft.turn = turn;
 
-    if (turn === 'OPPONENT' && draft.opponentCardCount === 0) {
+    const isHandRefillTurnChange = previousTurn === 'ME' && turn === 'OPPONENT';
+    if (isHandRefillTurnChange && draft.opponentCardCount === 0) {
       draft.opponentCardCount = 3;
     }
   }

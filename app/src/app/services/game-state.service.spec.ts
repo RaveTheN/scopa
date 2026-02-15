@@ -92,13 +92,13 @@ describe('GameStateService', () => {
     expect(service.getCurrentState().turn).toBe('ME');
   });
 
-  it('setTurn to OPPONENT refills opponent cards to 3 when count is 0', () => {
+  it('setTurn to OPPONENT from null does not refill opponent cards', () => {
     service.setOpponentCardCount(0);
     service.setTurn('OPPONENT');
 
     const state = service.getCurrentState();
     expect(state.turn).toBe('OPPONENT');
-    expect(state.opponentCardCount).toBe(3);
+    expect(state.opponentCardCount).toBe(0);
   });
 
   it('toggleTurn to OPPONENT refills opponent cards to 3 when count is 0', () => {
@@ -119,5 +119,30 @@ describe('GameStateService', () => {
     const state = service.getCurrentState();
     expect(state.turn).toBe('ME');
     expect(state.opponentCardCount).toBe(0);
+  });
+
+  it('decrements on opponent play and refills only on ME -> OPPONENT when count is 0', () => {
+    service.clickTableCard(createCardId(Suit.Denari, 1));
+    service.clickTableCard(createCardId(Suit.Coppe, 2));
+    service.clickTableCard(createCardId(Suit.Spade, 3));
+    service.clickTableCard(createCardId(Suit.Bastoni, 4));
+
+    service.clickHandCard(createCardId(Suit.Denari, 7));
+    service.clickHandCard(createCardId(Suit.Coppe, 7));
+    service.clickHandCard(createCardId(Suit.Spade, 7));
+
+    service.setTurn('OPPONENT');
+    service.clickTableCard(createCardId(Suit.Bastoni, 10));
+
+    let state = service.getCurrentState();
+    expect(state.turn).toBe('ME');
+    expect(state.opponentCardCount).toBe(2);
+
+    service.setOpponentCardCount(0);
+    service.clickTableCard(createCardId(Suit.Denari, 7));
+
+    state = service.getCurrentState();
+    expect(state.turn).toBe('OPPONENT');
+    expect(state.opponentCardCount).toBe(3);
   });
 });
