@@ -79,3 +79,12 @@
   pointer-events: none;
   background: #e8e8e8;
 }
+
+.cell-button.blocked-capture {
+  background: #d6c2ff;
+  outline: 2px solid #7a3fe0;
+}
+
+.cell-button.blocked-capture.not-selectable {
+  opacity: 0.85;
+}

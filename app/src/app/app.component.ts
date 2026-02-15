@@ -10,7 +10,8 @@ import { StatsPanelComponent } from './components/stats-panel/stats-panel.compon
 import { HandSelectorComponent } from './components/hand-selector/hand-selector.component';
 import { AISuggestionPanelComponent } from './components/ai-suggestion-panel/ai-suggestion-panel.component';
 import { LogBarComponent } from './components/log-bar/log-bar.component';
-import { CardState, GamePhase, GameState } from './models/card.model';
+import { CARD_BY_ID, CardState, GamePhase, GameState } from './models/card.model';
+import { findCombinations } from './utils/combinations.util';
 
 interface TableViewModel {
   cardStates: Record<string, CardState>;
@@ -99,10 +100,28 @@ export class AppComponent {
       return selectable;
     }
 
-    for (const [cardId, cardState] of Object.entries(state.cardStates)) {
-      if (cardState === CardState.ON_TABLE || cardState === CardState.COMBINATION_CANDIDATE) {
-        selectable.add(cardId);
+    if (!state.pendingPlayedCard) {
+      return selectable;
+    }
+
+    const pendingCard = CARD_BY_ID[state.pendingPlayedCard];
+    if (!pendingCard) {
+      return selectable;
+    }
+
+    const tableCards = state.cardsOnTable
+      .map((id) => CARD_BY_ID[id])
+      .filter((card) => !!card);
+    const validCombinations = findCombinations(pendingCard.rank, tableCards);
+
+    for (const combination of validCombinations) {
+      for (const card of combination) {
+        selectable.add(card.id);
       }
+    }
+
+    for (const cardId of state.selectedCombination) {
+      selectable.add(cardId);
     }
 
     return selectable;

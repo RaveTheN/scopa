@@ -31,6 +31,7 @@ export class CardGridComponent {
   readonly ranks: number[] = RANKS;
 
   protected readonly cardState = CardState;
+  protected readonly gamePhase = GamePhase;
 
   trackByRank(_: number, rank: number): number {
     return rank;

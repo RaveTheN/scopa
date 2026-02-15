@@ -15,6 +15,7 @@ export class CardCellComponent {
   @Input() probability: number | null = null;
   @Input() mode: 'table' | 'hand' = 'table';
   @Input() selectable = true;
+  @Input() blockedCapture = false;
 
   @Output() clicked = new EventEmitter<void>();
 

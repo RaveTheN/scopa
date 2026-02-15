@@ -10,6 +10,7 @@
   [class.state-played]="state === cardState.PLAYED"
   [class.state-combination-candidate]="state === cardState.COMBINATION_CANDIDATE"
   [class.not-selectable]="!selectable && state !== cardState.PLAYED && state !== cardState.ON_TABLE_BLINKING"
+  [class.blocked-capture]="blockedCapture"
   (click)="onClick()"
 >
   <span class="cell-main">{{ mainText }}</span>

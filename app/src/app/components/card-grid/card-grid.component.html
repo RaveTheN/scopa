@@ -14,6 +14,12 @@
             [probability]="getProbability(rank)"
             [mode]="mode"
             [selectable]="isSelectable(card.id)"
+            [blockedCapture]="
+              mode === 'table' &&
+              phase === gamePhase.CHOOSE_COMBINATION &&
+              getState(card.id) === cardState.ON_TABLE &&
+              !isSelectable(card.id)
+            "
             (clicked)="onCardClick(card.id)"
           />
         </ng-container>
