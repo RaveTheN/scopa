@@ -71,7 +71,7 @@ export class GameStateService {
         return false;
       }
 
-      draft.turn = turn;
+      this.setTurnWithOpponentRefill(draft, turn);
       return true;
     });
   }
@@ -82,7 +82,8 @@ export class GameStateService {
         return false;
       }
 
-      draft.turn = draft.turn === 'ME' ? 'OPPONENT' : 'ME';
+      const nextTurn = draft.turn === 'ME' ? 'OPPONENT' : 'ME';
+      this.setTurnWithOpponentRefill(draft, nextTurn);
       return true;
     });
   }
@@ -106,7 +107,8 @@ export class GameStateService {
       }
 
       if (result.shouldToggleTurn) {
-        draft.turn = draft.turn === 'ME' ? 'OPPONENT' : 'ME';
+        const nextTurn = draft.turn === 'ME' ? 'OPPONENT' : 'ME';
+        this.setTurnWithOpponentRefill(draft, nextTurn);
       }
 
       return true;
@@ -157,7 +159,8 @@ export class GameStateService {
       }
 
       if (result.shouldToggleTurn) {
-        draft.turn = draft.turn === 'ME' ? 'OPPONENT' : 'ME';
+        const nextTurn = draft.turn === 'ME' ? 'OPPONENT' : 'ME';
+        this.setTurnWithOpponentRefill(draft, nextTurn);
       }
 
       return true;
@@ -396,6 +399,14 @@ export class GameStateService {
 
   private uniqueIds(ids: string[]): string[] {
     return [...new Set(ids)];
+  }
+
+  private setTurnWithOpponentRefill(draft: GameState, turn: Exclude<Turn, null>): void {
+    draft.turn = turn;
+
+    if (turn === 'OPPONENT' && draft.opponentCardCount === 0) {
+      draft.opponentCardCount = 3;
+    }
   }
 
   private clamp(value: number, min: number, max: number): number {

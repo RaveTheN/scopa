@@ -91,4 +91,33 @@ describe('GameStateService', () => {
     service.toggleTurn();
     expect(service.getCurrentState().turn).toBe('ME');
   });
+
+  it('setTurn to OPPONENT refills opponent cards to 3 when count is 0', () => {
+    service.setOpponentCardCount(0);
+    service.setTurn('OPPONENT');
+
+    const state = service.getCurrentState();
+    expect(state.turn).toBe('OPPONENT');
+    expect(state.opponentCardCount).toBe(3);
+  });
+
+  it('toggleTurn to OPPONENT refills opponent cards to 3 when count is 0', () => {
+    service.setTurn('ME');
+    service.setOpponentCardCount(0);
+    service.toggleTurn();
+
+    const state = service.getCurrentState();
+    expect(state.turn).toBe('OPPONENT');
+    expect(state.opponentCardCount).toBe(3);
+  });
+
+  it('toggleTurn to ME keeps opponent card count unchanged', () => {
+    service.setTurn('OPPONENT');
+    service.setOpponentCardCount(0);
+    service.toggleTurn();
+
+    const state = service.getCurrentState();
+    expect(state.turn).toBe('ME');
+    expect(state.opponentCardCount).toBe(0);
+  });
 });
