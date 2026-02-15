@@ -7,6 +7,18 @@
   <div>Rimaste: {{ stats.remaining }}</div>
   <div>Prese tue: {{ stats.myCaptured }}</div>
   <div>Prese avversario: {{ stats.opponentCaptured }}</div>
+  <div>Sette oro: {{ stats.setteOroStatus }}</div>
+  <label class="auto-ai-toggle" for="show-probabilities-toggle">
+    <input
+      id="show-probabilities-toggle"
+      type="checkbox"
+      class="auto-ai-toggle-input"
+      [checked]="stats.showTableProbabilities"
+      (change)="onShowProbabilitiesToggle($event)"
+    />
+    <span class="auto-ai-toggle-slider" aria-hidden="true"></span>
+    <span>% tavolo</span>
+  </label>
   <label class="auto-ai-toggle" for="auto-ai-toggle">
     <input
       id="auto-ai-toggle"

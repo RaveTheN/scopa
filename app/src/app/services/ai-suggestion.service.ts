@@ -158,6 +158,8 @@ export class AISuggestionService implements OnDestroy {
       myHand: state.myHand.map((cardId) => this.cardLabel(cardId)),
       cardsOnTable: state.cardsOnTable.map((cardId) => this.cardLabel(cardId)),
       playedCards,
+      myCapturedCards: state.myCapturedCards.map((cardId) => this.cardLabel(cardId)),
+      opponentCapturedCards: state.opponentCapturedCards.map((cardId) => this.cardLabel(cardId)),
       unknownCardsCount,
       probabilitiesByRank,
       opponentCardCount: state.opponentCardCount,

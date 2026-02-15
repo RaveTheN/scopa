@@ -22,6 +22,7 @@ export class CardGridComponent {
   @Input() mode: 'table' | 'hand' = 'table';
   @Input() cardStates: Record<string, CardState> = {};
   @Input() probabilities: Record<number, number> = {};
+  @Input() showTableProbabilities = true;
   @Input() selectableCardIds: Set<string> = new Set<string>();
   @Input() phase: GamePhase = GamePhase.INITIAL_FOUR;
 
@@ -55,6 +56,10 @@ export class CardGridComponent {
 
   getProbability(rank: number): number | null {
     if (this.mode !== 'table') {
+      return null;
+    }
+
+    if (!this.showTableProbabilities) {
       return null;
     }
 

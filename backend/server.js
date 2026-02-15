@@ -162,11 +162,34 @@ function formatLegalMoves(legalMoves) {
   }).join('\n');
 }
 
+function formatCardList(cards, maxItems = 18) {
+  if (!Array.isArray(cards) || cards.length === 0) {
+    return 'nessuna';
+  }
+
+  const compact = cards
+    .filter((item) => typeof item === 'string' && item.trim())
+    .map((item) => item.trim());
+
+  if (compact.length === 0) {
+    return 'nessuna';
+  }
+
+  if (compact.length <= maxItems) {
+    return compact.join(', ');
+  }
+
+  const shown = compact.slice(0, maxItems).join(', ');
+  return `${shown} ... (+${compact.length - maxItems})`;
+}
+
 function buildUserPrompt(payload) {
   const {
     myHand = [],
     cardsOnTable = [],
     playedCards = [],
+    myCapturedCards = [],
+    opponentCapturedCards = [],
     unknownCardsCount = 0,
     probabilitiesByRank = {},
     opponentCardCount = 0,
@@ -177,6 +200,9 @@ function buildUserPrompt(payload) {
     `Carte nella mia mano: ${Array.isArray(myHand) && myHand.length ? myHand.join(', ') : 'nessuna'}`,
     `Carte sul tavolo: ${Array.isArray(cardsOnTable) && cardsOnTable.length ? cardsOnTable.join(', ') : 'nessuna'}`,
     `Carte gia giocate/uscite: ${Array.isArray(playedCards) && playedCards.length ? playedCards.join(', ') : 'nessuna'}`,
+    `Carte prese da me: ${formatCardList(myCapturedCards)}`,
+    `Carte prese avversario: ${formatCardList(opponentCapturedCards)}`,
+    `Conteggio prese (io/avversario): ${Array.isArray(myCapturedCards) ? myCapturedCards.length : 0}/${Array.isArray(opponentCapturedCards) ? opponentCapturedCards.length : 0}`,
     `Carte sconosciute: ${Number(unknownCardsCount) || 0}`,
     `Probabilita per valore (0..1, 6 decimali): ${formatProbabilities(probabilitiesByRank)}`,
     `Top valori probabili avversario: ${formatTopProbabilities(probabilitiesByRank, 3)}`,

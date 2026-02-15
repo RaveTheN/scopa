@@ -7,6 +7,8 @@ export interface OpenAiQueryInput {
   myHand: string[];
   cardsOnTable: string[];
   playedCards: string[];
+  myCapturedCards: string[];
+  opponentCapturedCards: string[];
   unknownCardsCount: number;
   probabilitiesByRank: Record<number, number>;
   opponentCardCount: number;

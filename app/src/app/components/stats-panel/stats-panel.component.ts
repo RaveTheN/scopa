@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { map } from 'rxjs';
-import { CARD_BY_ID, CardState, GamePhase, Suit } from '../../models/card.model';
+import { CARD_BY_ID, CardState, createCardId, GamePhase, Suit } from '../../models/card.model';
 import { AISuggestionService } from '../../services/ai-suggestion.service';
 import { GameStateService } from '../../services/game-state.service';
 
@@ -14,8 +14,12 @@ interface StatsViewModel {
   remaining: number;
   myCaptured: number;
   opponentCaptured: number;
+  setteOroStatus: string;
+  showTableProbabilities: boolean;
   phaseLabel: string;
 }
+
+const SETTE_ORO_ID = createCardId(Suit.Denari, 7);
 
 @Component({
   selector: 'app-stats-panel',
@@ -50,6 +54,17 @@ export class StatsPanelComponent {
         .length;
 
       const totalPlayed = playedIds.length;
+      const myHasSetteOro = state.myCapturedCards.includes(SETTE_ORO_ID);
+      const opponentHasSetteOro = state.opponentCapturedCards.includes(SETTE_ORO_ID);
+
+      let setteOroStatus = 'Non preso';
+      if (myHasSetteOro && !opponentHasSetteOro) {
+        setteOroStatus = 'Preso da te';
+      } else if (!myHasSetteOro && opponentHasSetteOro) {
+        setteOroStatus = 'Preso da avversario';
+      } else if (myHasSetteOro && opponentHasSetteOro) {
+        setteOroStatus = 'Incoerente';
+      }
 
       return {
         denariPlayed,
@@ -60,6 +75,8 @@ export class StatsPanelComponent {
         remaining: 40 - totalPlayed,
         myCaptured: state.myCapturedCards.length,
         opponentCaptured: state.opponentCapturedCards.length,
+        setteOroStatus,
+        showTableProbabilities: state.showTableProbabilities,
         phaseLabel: this.toPhaseLabel(state.phase)
       };
     })
@@ -73,6 +90,11 @@ export class StatsPanelComponent {
   onAutoQueryToggle(event: Event): void {
     const target = event.target as HTMLInputElement | null;
     this.aiSuggestionService.setAutoQueryEnabled(!!target?.checked);
+  }
+
+  onShowProbabilitiesToggle(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    this.gameStateService.setShowTableProbabilities(!!target?.checked);
   }
 
   private toPhaseLabel(phase: GamePhase): string {

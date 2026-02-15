@@ -23,6 +23,7 @@ export class GameStateService {
   readonly cardStates = this.state.pipe(map((state) => state.cardStates));
   readonly phase = this.state.pipe(map((state) => state.phase));
   readonly turn = this.state.pipe(map((state) => state.turn));
+  readonly showTableProbabilities = this.state.pipe(map((state) => state.showTableProbabilities));
   readonly myHand = this.state.pipe(map((state) => state.myHand));
   readonly opponentCardCount = this.state.pipe(map((state) => state.opponentCardCount));
   readonly cardsOnTable = this.state.pipe(map((state) => state.cardsOnTable));
@@ -201,6 +202,17 @@ export class GameStateService {
     });
   }
 
+  setShowTableProbabilities(show: boolean): void {
+    this.applyMutation((draft) => {
+      if (draft.showTableProbabilities === show) {
+        return false;
+      }
+
+      draft.showTableProbabilities = show;
+      return true;
+    });
+  }
+
   setAiSuggestion(suggestion: string): void {
     this.applyMutation((draft) => {
       if (draft.aiSuggestion === suggestion) {
@@ -319,6 +331,9 @@ export class GameStateService {
       cardStates,
       phase,
       turn,
+      showTableProbabilities: typeof raw.showTableProbabilities === 'boolean'
+        ? raw.showTableProbabilities
+        : true,
       myHand,
       opponentCardCount: this.clamp(
         typeof raw.opponentCardCount === 'number' ? Math.round(raw.opponentCardCount) : 3,
@@ -359,6 +374,7 @@ export class GameStateService {
       cardStates,
       phase: GamePhase.INITIAL_FOUR,
       turn: null,
+      showTableProbabilities: true,
       myHand: [],
       opponentCardCount: 3,
       cardsOnTable: [],
@@ -376,6 +392,7 @@ export class GameStateService {
       cardStates: { ...state.cardStates },
       phase: state.phase,
       turn: state.turn,
+      showTableProbabilities: state.showTableProbabilities,
       myHand: [...state.myHand],
       opponentCardCount: state.opponentCardCount,
       cardsOnTable: [...state.cardsOnTable],
@@ -393,6 +410,7 @@ export class GameStateService {
       cardStates: { ...snapshot.cardStates },
       phase: snapshot.phase,
       turn: snapshot.turn,
+      showTableProbabilities: snapshot.showTableProbabilities,
       myHand: [...snapshot.myHand],
       opponentCardCount: snapshot.opponentCardCount,
       cardsOnTable: [...snapshot.cardsOnTable],

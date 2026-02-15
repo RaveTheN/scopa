@@ -16,6 +16,7 @@ import { findCombinations } from './utils/combinations.util';
 interface TableViewModel {
   cardStates: Record<string, CardState>;
   probabilities: Record<number, number>;
+  showTableProbabilities: boolean;
   selectableCardIds: Set<string>;
   phase: GamePhase;
 }
@@ -53,6 +54,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
       return {
         cardStates: state.cardStates,
         probabilities: probabilityRecord,
+        showTableProbabilities: state.showTableProbabilities,
         selectableCardIds: this.buildSelectableSet(state),
         phase: state.phase
       };
