@@ -17,12 +17,14 @@ import {
 import { environment } from '../../environments/environment';
 import {
   CARD_BY_ID,
+  Card,
   CardState,
   GamePhase,
   GameState
 } from '../models/card.model';
+import { findCombinations } from '../utils/combinations.util';
 import { GameStateService } from './game-state.service';
-import { OpenAIService, OpenAiQueryInput } from './openai.service';
+import { OpenAIService, OpenAiLegalMove, OpenAiQueryInput } from './openai.service';
 import { ProbabilityService } from './probability.service';
 
 @Injectable({
@@ -132,6 +134,9 @@ export class AISuggestionService implements OnDestroy {
       .map(([cardId]) => this.cardLabel(cardId));
 
     const unknownCardsCount = Object.values(state.cardStates).filter((cardState) => cardState === CardState.UNKNOWN).length;
+    const tableCards = state.cardsOnTable
+      .map((cardId) => CARD_BY_ID[cardId])
+      .filter((card): card is Card => !!card);
 
     return {
       myHand: state.myHand.map((cardId) => this.cardLabel(cardId)),
@@ -139,7 +144,10 @@ export class AISuggestionService implements OnDestroy {
       playedCards,
       unknownCardsCount,
       probabilitiesByRank,
-      opponentCardCount: state.opponentCardCount
+      opponentCardCount: state.opponentCardCount,
+      legalMoves: state.myHand
+        .map((cardId) => this.buildLegalMove(cardId, tableCards))
+        .filter((move): move is OpenAiLegalMove => !!move)
     };
   }
 
@@ -182,5 +190,20 @@ export class AISuggestionService implements OnDestroy {
       return 'Re';
     }
     return rank.toString();
+  }
+
+  private buildLegalMove(cardId: string, tableCards: Card[]): OpenAiLegalMove | null {
+    const playedCard = CARD_BY_ID[cardId];
+    if (!playedCard) {
+      return null;
+    }
+
+    const captures = findCombinations(playedCard.rank, tableCards)
+      .map((combination) => combination.map((card) => this.cardLabel(card.id)));
+
+    return {
+      card: this.cardLabel(playedCard.id),
+      captures
+    };
   }
 }

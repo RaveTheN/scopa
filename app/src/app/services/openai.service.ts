@@ -10,6 +10,12 @@ export interface OpenAiQueryInput {
   unknownCardsCount: number;
   probabilitiesByRank: Record<number, number>;
   opponentCardCount: number;
+  legalMoves: OpenAiLegalMove[];
+}
+
+export interface OpenAiLegalMove {
+  card: string;
+  captures: string[][];
 }
 
 interface SuggestionResponse {

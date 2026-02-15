@@ -27,6 +27,10 @@ Usa i file in `backend/`:
 4. imposta nel `.env`:
    - `AI_PROVIDER=gemini` e `GEMINI_API_KEY=...`
    - oppure `AI_PROVIDER=openai` e `OPENAI_API_KEY=...`
+   - opzionale Gemini:
+     - `GEMINI_MODEL=gemini-2.0-flash` (consigliato)
+     - `GEMINI_FALLBACK_MODELS=gemini-2.0-flash-lite,gemini-2.5-flash`
+     - `AI_MAX_OUTPUT_TOKENS=256`
 5. `npm start`
 
 Endpoint disponibile: `POST /api/openai/suggestion`
@@ -44,3 +48,10 @@ openaiProxyUrl: 'https://TUO-BACKEND/api/openai/suggestion'
 
 - Non committare mai `.env` o key reali.
 - Se una key e stata condivisa in chat/commit/log, revocala e rigenerala subito.
+
+## Ottimizzazioni gia supportate
+
+- Prompt rigido su Scopa classica (esclude la regola del 15).
+- Invio al backend delle mosse legali gia calcolate dal motore.
+- Risposta AI sintetica con `Carta consigliata` in prima riga.
+- Fallback modello Gemini automatico quando il primario e in quota/errore.
