@@ -1,15 +1,20 @@
 :host {
   display: block;
+  height: 100%;
+  min-height: 0;
 }
 
 .ai-panel {
-  min-height: 400px;
+  min-height: 360px;
+  height: 100%;
+  max-height: 100%;
   border: 1px solid #ddd;
   border-radius: 8px;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow: hidden;
 }
 
 .ai-header {
@@ -21,7 +26,10 @@
   white-space: pre-wrap;
   font-size: 14px;
   line-height: 1.4;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .ai-btn {

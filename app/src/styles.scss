@@ -24,6 +24,10 @@ h1 {
   margin: 12px 0;
 }
 
+.main-content > * {
+  min-height: 0;
+}
+
 @media (max-width: 899px) {
   .main-content {
     grid-template-columns: 1fr;
