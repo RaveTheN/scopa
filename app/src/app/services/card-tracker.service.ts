@@ -98,6 +98,12 @@ export class CardTrackerService {
 
     snapshot.cardStates[snapshot.pendingPlayedCard] = CardState.PLAYED;
     snapshot.cardsOnTable = snapshot.cardsOnTable.filter((id) => !snapshot.selectedCombination.includes(id));
+    this.recordCapture(
+      snapshot,
+      snapshot.turn === 'ME',
+      snapshot.pendingPlayedCard,
+      snapshot.selectedCombination
+    );
 
     const actor = this.actorLabel(snapshot.turn);
     const selectedLabel = snapshot.selectedCombination
@@ -184,6 +190,7 @@ export class CardTrackerService {
       }
       snapshot.cardStates[playedCard.id] = CardState.PLAYED;
       snapshot.cardsOnTable = snapshot.cardsOnTable.filter((id) => !comboIds.includes(id));
+      this.recordCapture(snapshot, isMyPlay, playedCard.id, comboIds);
 
       if (isMyPlay) {
         snapshot.myHand = snapshot.myHand.filter((id) => id !== playedCard.id);
@@ -231,6 +238,24 @@ export class CardTrackerService {
 
   private actorLabel(turn: Turn): string {
     return turn === 'ME' ? 'Tu' : 'Avversario';
+  }
+
+  private recordCapture(
+    snapshot: GameStateSnapshot,
+    isMyPlay: boolean,
+    playedCardId: string,
+    capturedIds: string[]
+  ): void {
+    const target = isMyPlay ? snapshot.myCapturedCards : snapshot.opponentCapturedCards;
+    const merged = [...target, playedCardId, ...capturedIds];
+    const unique = [...new Set(merged)];
+
+    if (isMyPlay) {
+      snapshot.myCapturedCards = unique;
+      return;
+    }
+
+    snapshot.opponentCapturedCards = unique;
   }
 
   private cardLabel(card: Card): string {

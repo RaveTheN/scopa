@@ -26,6 +26,8 @@ export class GameStateService {
   readonly myHand = this.state.pipe(map((state) => state.myHand));
   readonly opponentCardCount = this.state.pipe(map((state) => state.opponentCardCount));
   readonly cardsOnTable = this.state.pipe(map((state) => state.cardsOnTable));
+  readonly myCapturedCards = this.state.pipe(map((state) => state.myCapturedCards));
+  readonly opponentCapturedCards = this.state.pipe(map((state) => state.opponentCapturedCards));
   readonly lastPlayLog = this.state.pipe(map((state) => state.lastPlayLog));
   readonly aiSuggestion = this.state.pipe(map((state) => state.aiSuggestion));
   readonly aiLoading = this.state.pipe(map((state) => state.aiLoading));
@@ -277,6 +279,8 @@ export class GameStateService {
 
     const myHand = this.uniqueIds(Array.isArray(raw.myHand) ? raw.myHand : []).filter((id) => id in CARD_BY_ID).slice(0, 3);
     const cardsOnTable = this.uniqueIds(Array.isArray(raw.cardsOnTable) ? raw.cardsOnTable : []).filter((id) => id in CARD_BY_ID);
+    const myCapturedCards = this.uniqueIds(Array.isArray(raw.myCapturedCards) ? raw.myCapturedCards : []).filter((id) => id in CARD_BY_ID);
+    const opponentCapturedCards = this.uniqueIds(Array.isArray(raw.opponentCapturedCards) ? raw.opponentCapturedCards : []).filter((id) => id in CARD_BY_ID);
     const selectedCombination = this.uniqueIds(Array.isArray(raw.selectedCombination) ? raw.selectedCombination : []).filter((id) => id in CARD_BY_ID);
 
     for (const id of myHand) {
@@ -317,6 +321,8 @@ export class GameStateService {
         3
       ),
       cardsOnTable,
+      myCapturedCards,
+      opponentCapturedCards,
       initialFourCount: this.clamp(
         typeof raw.initialFourCount === 'number' ? Math.round(raw.initialFourCount) : cardsOnTable.length,
         0,
@@ -351,6 +357,8 @@ export class GameStateService {
       myHand: [],
       opponentCardCount: 3,
       cardsOnTable: [],
+      myCapturedCards: [],
+      opponentCapturedCards: [],
       initialFourCount: 0,
       lastPlayLog: '',
       pendingPlayedCard: null,
@@ -366,6 +374,8 @@ export class GameStateService {
       myHand: [...state.myHand],
       opponentCardCount: state.opponentCardCount,
       cardsOnTable: [...state.cardsOnTable],
+      myCapturedCards: [...state.myCapturedCards],
+      opponentCapturedCards: [...state.opponentCapturedCards],
       initialFourCount: state.initialFourCount,
       lastPlayLog: state.lastPlayLog,
       pendingPlayedCard: state.pendingPlayedCard,
@@ -381,6 +391,8 @@ export class GameStateService {
       myHand: [...snapshot.myHand],
       opponentCardCount: snapshot.opponentCardCount,
       cardsOnTable: [...snapshot.cardsOnTable],
+      myCapturedCards: [...snapshot.myCapturedCards],
+      opponentCapturedCards: [...snapshot.opponentCapturedCards],
       initialFourCount: snapshot.initialFourCount,
       lastPlayLog: snapshot.lastPlayLog,
       pendingPlayedCard: snapshot.pendingPlayedCard,

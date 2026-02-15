@@ -38,20 +38,6 @@ Non aggiungere testo fuori dal JSON. Non spiegare le regole. Non fare analisi lu
 Rispondi con un singolo oggetto JSON, senza markdown, senza backticks.
 Se non puoi decidere, scegli comunque una best_card valida e confidence=bassa.`;
 
-const GEMINI_RESPONSE_SCHEMA = {
-  type: 'OBJECT',
-  properties: {
-    best_card: { type: 'STRING' },
-    confidence: { type: 'STRING' },
-    short_reason: { type: 'STRING' },
-    risk_notes: {
-      type: 'ARRAY',
-      items: { type: 'STRING' }
-    }
-  },
-  required: ['best_card', 'short_reason']
-};
-
 app.use(express.json({ limit: '1mb' }));
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:4200')
@@ -84,14 +70,7 @@ app.post('/api/openai/suggestion', async (req, res) => {
   try {
     const payload = req.body || {};
     const userPrompt = buildUserPrompt(payload);
-    const provider = resolveProvider();
-    if (!provider) {
-      throw createError(500, 'Configura GEMINI_API_KEY o OPENAI_API_KEY sul backend.');
-    }
-
-    const suggestion = provider === 'gemini'
-      ? await queryGemini(userPrompt, payload)
-      : await queryOpenAi(userPrompt, payload);
+    const suggestion = await queryOpenAi(userPrompt, payload);
 
     res.json({ suggestion });
   } catch (error) {
@@ -171,148 +150,6 @@ function buildUserPrompt(payload) {
     formatLegalMoves(legalMoves),
     'Scegli la mossa migliore tra quelle elencate sopra e rispondi SOLO con il JSON richiesto.'
   ].join('\n');
-}
-
-function resolveProvider() {
-  const explicitProvider = (process.env.AI_PROVIDER || '').trim().toLowerCase();
-  if (explicitProvider === 'gemini' || explicitProvider === 'openai') {
-    return explicitProvider;
-  }
-
-  if ((process.env.GEMINI_API_KEY || '').trim()) {
-    return 'gemini';
-  }
-
-  if ((process.env.OPENAI_API_KEY || '').trim()) {
-    return 'openai';
-  }
-
-  return null;
-}
-
-function parseGeminiModelChain() {
-  const primary = (process.env.GEMINI_MODEL || 'gemini-2.0-flash').trim();
-  const fallbackModels = (process.env.GEMINI_FALLBACK_MODELS || 'gemini-2.0-flash-lite,gemini-2.5-flash')
-    .split(',')
-    .map((model) => model.trim())
-    .filter(Boolean);
-
-  return [primary, ...fallbackModels].filter((model, index, all) => model && all.indexOf(model) === index);
-}
-
-function shouldFallbackGemini(statusCode) {
-  return statusCode === 404 || statusCode === 429 || statusCode === 500 || statusCode === 503;
-}
-
-function buildGeminiRequestBody(systemPrompt, userPrompt, maxOutputTokens, structuredOutput) {
-  const generationConfig = {
-    temperature: 0.1,
-    maxOutputTokens
-  };
-
-  if (structuredOutput) {
-    generationConfig.responseMimeType = 'application/json';
-    generationConfig.responseSchema = GEMINI_RESPONSE_SCHEMA;
-  }
-
-  return {
-    systemInstruction: {
-      parts: [{ text: systemPrompt }]
-    },
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: userPrompt }]
-      }
-    ],
-    generationConfig
-  };
-}
-
-function isStructuredOutputUnsupportedError(statusCode, errorText) {
-  if (statusCode !== 400 || typeof errorText !== 'string') {
-    return false;
-  }
-
-  const normalized = errorText.toLowerCase();
-  return normalized.includes('responsemimetype') || normalized.includes('responseschema');
-}
-
-async function queryGemini(userPrompt, payload) {
-  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
-  if (!apiKey) {
-    throw createError(500, 'GEMINI_API_KEY non configurata sul backend.');
-  }
-
-  const modelChain = parseGeminiModelChain();
-  const maxOutputTokens = Number(process.env.AI_MAX_OUTPUT_TOKENS || 256);
-  let lastError = null;
-
-  for (let index = 0; index < modelChain.length; index += 1) {
-    const model = modelChain[index];
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-    let response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'x-goog-api-key': apiKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(buildGeminiRequestBody(SYSTEM_PROMPT, userPrompt, maxOutputTokens, true))
-    });
-
-    if (!response.ok) {
-      const firstErrorText = await response.text();
-      const shouldRetryWithoutSchema = isStructuredOutputUnsupportedError(response.status, firstErrorText);
-
-      if (shouldRetryWithoutSchema) {
-        response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'x-goog-api-key': apiKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(buildGeminiRequestBody(SYSTEM_PROMPT, userPrompt, maxOutputTokens, false))
-        });
-      } else {
-        const error = createError(response.status, `Errore Gemini (${model}): ${firstErrorText}`);
-        if (index < modelChain.length - 1 && shouldFallbackGemini(response.status)) {
-          lastError = error;
-          continue;
-        }
-        throw error;
-      }
-    }
-
-    if (!response.ok) {
-      const text = await response.text();
-      const error = createError(response.status, `Errore Gemini (${model}): ${text}`);
-
-      if (index < modelChain.length - 1 && shouldFallbackGemini(response.status)) {
-        lastError = error;
-        continue;
-      }
-
-      throw error;
-    }
-
-    const data = await response.json();
-    const parts = data?.candidates?.[0]?.content?.parts || [];
-    const rawSuggestion = parts
-      .map((part) => part?.text || '')
-      .join('\n')
-      .trim();
-
-    const suggestion = formatFinalSuggestion(rawSuggestion, payload?.legalMoves);
-    if (suggestion) {
-      return suggestion;
-    }
-  }
-
-  if (lastError) {
-    throw lastError;
-  }
-
-  return 'Nessun suggerimento disponibile.';
 }
 
 function buildOpenAiRequestBody(model, systemPrompt, userPrompt, maxOutputTokens, forceJson) {
@@ -420,12 +257,25 @@ function safeParseJson(text) {
   }
 }
 
+function stripFormattingArtifacts(text) {
+  if (typeof text !== 'string') {
+    return '';
+  }
+
+  return text
+    .replace(/```json/gi, '')
+    .replace(/```/g, '')
+    .replace(/here is the json requested:?/gi, '')
+    .replace(/ecco il json richiesto:?/gi, '')
+    .trim();
+}
+
 function cleanLine(text, maxLength) {
   if (typeof text !== 'string') {
     return '';
   }
 
-  const compact = text
+  const compact = stripFormattingArtifacts(text)
     .replace(/\s+/g, ' ')
     .replace(/\n/g, ' ')
     .trim();
@@ -466,16 +316,17 @@ function normalizeBestCard(candidate, legalMoves) {
 }
 
 function formatFinalSuggestion(rawSuggestion, legalMoves) {
-  const parsed = safeParseJson(rawSuggestion);
+  const sanitizedRawSuggestion = stripFormattingArtifacts(rawSuggestion);
+  const parsed = safeParseJson(sanitizedRawSuggestion);
   const normalizedMoves = normalizeLegalMoves(legalMoves);
 
   if (!parsed || typeof parsed !== 'object') {
-    if (!rawSuggestion || !rawSuggestion.trim()) {
+    if (!sanitizedRawSuggestion || !sanitizedRawSuggestion.trim()) {
       return 'Nessun suggerimento disponibile.';
     }
 
     const fallbackCard = normalizedMoves[0]?.card || '';
-    const fallbackReason = cleanLine(rawSuggestion, 240);
+    const fallbackReason = cleanLine(sanitizedRawSuggestion, 240) || 'Risposta non strutturata dal modello.';
     if (!fallbackCard) {
       return fallbackReason;
     }

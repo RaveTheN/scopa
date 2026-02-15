@@ -1,7 +1,6 @@
-# Backend sicuro AI (Gemini/OpenAI)
+# Backend sicuro AI (OpenAI)
 
 Questo backend espone `POST /api/openai/suggestion` e mantiene la API key solo lato server.
-Puoi usare Gemini oppure OpenAI.
 
 ## Setup locale
 
@@ -18,16 +17,12 @@ npm install
 ```
 
 3. Crea `.env` partendo da `.env.example`.
-4. Imposta una delle due key:
-   - `GEMINI_API_KEY` (consigliato, con `AI_PROVIDER=gemini`)
-   - oppure `OPENAI_API_KEY` (con `AI_PROVIDER=openai`)
-5. Se non imposti `AI_PROVIDER`, il backend usa Gemini se trova `GEMINI_API_KEY`, altrimenti OpenAI.
-6. Opzionale (Gemini):
-   - `GEMINI_MODEL=gemini-2.0-flash` (default consigliato: veloce e con free tier ampio)
-   - `GEMINI_FALLBACK_MODELS=gemini-2.0-flash-lite,gemini-2.5-flash`
-   - `AI_MAX_OUTPUT_TOKENS=256` (evita troncamento del JSON)
+4. Imposta:
+   - `OPENAI_API_KEY=...`
+   - opzionale `OPENAI_MODEL=gpt-4o-mini`
+   - opzionale `AI_MAX_OUTPUT_TOKENS=256` (evita JSON troncati)
 
-7. Avvia:
+5. Avvia:
 
 ```bash
 npm start
@@ -50,12 +45,39 @@ openaiProxyUrl: 'https://TUO-BACKEND/api/openai/suggestion'
 
 Variabili consigliate su Render:
 
-- `AI_PROVIDER=gemini`
-- `GEMINI_API_KEY=...`
-- `GEMINI_MODEL=gemini-2.0-flash`
-- `GEMINI_FALLBACK_MODELS=gemini-2.0-flash-lite,gemini-2.5-flash`
+- `OPENAI_API_KEY=...`
+- `OPENAI_MODEL=gpt-4o-mini`
 - `AI_MAX_OUTPUT_TOKENS=256`
 - `ALLOWED_ORIGINS=https://ravethen.github.io`
+
+## Modello fine-tuned (opzionale)
+
+Se crei un fine-tuning su OpenAI, puoi usarlo senza modifiche al codice:
+
+- `OPENAI_MODEL=ft:...` (ID del modello fine-tuned)
+
+## Conversione log in JSONL (fine-tuning)
+
+E disponibile uno script CLI per convertire i log partita nel formato `JSONL` compatibile con SFT OpenAI.
+
+Comando base:
+
+```bash
+npm run convert-logs -- --input ../logs/state.json --output ../data/scopa-train.jsonl
+```
+
+Con split train/validation:
+
+```bash
+npm run convert-logs -- --input ../logs/states.json --output ../data/scopa-train.jsonl --validation-output ../data/scopa-valid.jsonl --validation-ratio 0.1 --seed 42
+```
+
+Formati input supportati:
+
+- oggetto `GameState` (come `scopa_ng_state` del localStorage)
+- array di stati partita
+- wrapper con chiavi tipo `games`, `matches`, `sessions`, `state`, `scopa_ng_state`
+- export localStorage in forma array di entry (`key`/`value`)
 
 ## Note comportamento AI
 

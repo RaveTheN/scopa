@@ -6,8 +6,13 @@ import { GameStateService } from '../../services/game-state.service';
 
 interface StatsViewModel {
   denariPlayed: number;
+  coppePlayed: number;
+  spadePlayed: number;
+  bastoniPlayed: number;
   totalPlayed: number;
   remaining: number;
+  myCaptured: number;
+  opponentCaptured: number;
   phaseLabel: string;
 }
 
@@ -29,13 +34,30 @@ export class StatsPanelComponent {
         .map((cardId) => CARD_BY_ID[cardId])
         .filter((card) => card?.suit === Suit.Denari)
         .length;
+      const coppePlayed = playedIds
+        .map((cardId) => CARD_BY_ID[cardId])
+        .filter((card) => card?.suit === Suit.Coppe)
+        .length;
+      const spadePlayed = playedIds
+        .map((cardId) => CARD_BY_ID[cardId])
+        .filter((card) => card?.suit === Suit.Spade)
+        .length;
+      const bastoniPlayed = playedIds
+        .map((cardId) => CARD_BY_ID[cardId])
+        .filter((card) => card?.suit === Suit.Bastoni)
+        .length;
 
       const totalPlayed = playedIds.length;
 
       return {
         denariPlayed,
+        coppePlayed,
+        spadePlayed,
+        bastoniPlayed,
         totalPlayed,
         remaining: 40 - totalPlayed,
+        myCaptured: state.myCapturedCards.length,
+        opponentCaptured: state.opponentCapturedCards.length,
         phaseLabel: this.toPhaseLabel(state.phase)
       };
     })

@@ -5,6 +5,12 @@ export function findCombinations(targetSum: number, tableCards: Card[]): Card[][
     return [];
   }
 
+  // Scopa rule: if cards with exact same rank exist on table, capture must be among those.
+  const exactMatches = tableCards.filter((card) => card.rank === targetSum);
+  if (exactMatches.length > 0) {
+    return exactMatches.map((card) => [card]);
+  }
+
   const combinations: Card[][] = [];
   const n = tableCards.length;
   const maxMask = 1 << n;

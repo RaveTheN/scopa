@@ -35,6 +35,8 @@ export interface GameStateSnapshot {
   myHand: string[];
   opponentCardCount: number;
   cardsOnTable: string[];
+  myCapturedCards: string[];
+  opponentCapturedCards: string[];
   initialFourCount: number;
   lastPlayLog: string;
   pendingPlayedCard: string | null;

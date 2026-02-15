@@ -33,6 +33,8 @@ describe('GameStateService', () => {
     expect(unknownCount).toBe(40);
     expect(state.phase).toBe(GamePhase.INITIAL_FOUR);
     expect(state.turn).toBeNull();
+    expect(state.myCapturedCards).toEqual([]);
+    expect(state.opponentCapturedCards).toEqual([]);
   });
 
   it('clicking 4 cards transitions phase to PLAYING', () => {
@@ -144,5 +146,27 @@ describe('GameStateService', () => {
     state = service.getCurrentState();
     expect(state.turn).toBe('OPPONENT');
     expect(state.opponentCardCount).toBe(3);
+  });
+
+  it('tracks captured cards separately for me and opponent', () => {
+    service.clickTableCard(createCardId(Suit.Bastoni, 1));
+    service.clickTableCard(createCardId(Suit.Coppe, 2));
+    service.clickTableCard(createCardId(Suit.Spade, 3));
+    service.clickTableCard(createCardId(Suit.Bastoni, 4));
+
+    service.clickHandCard(createCardId(Suit.Denari, 1));
+    service.setTurn('ME');
+    service.clickTableCard(createCardId(Suit.Denari, 1));
+
+    let state = service.getCurrentState();
+    expect(state.myCapturedCards).toContain(createCardId(Suit.Denari, 1));
+    expect(state.myCapturedCards).toContain(createCardId(Suit.Bastoni, 1));
+    expect(state.opponentCapturedCards).toEqual([]);
+
+    service.clickTableCard(createCardId(Suit.Denari, 2));
+
+    state = service.getCurrentState();
+    expect(state.opponentCapturedCards).toContain(createCardId(Suit.Denari, 2));
+    expect(state.opponentCapturedCards).toContain(createCardId(Suit.Coppe, 2));
   });
 });
