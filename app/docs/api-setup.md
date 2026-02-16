@@ -27,6 +27,10 @@ Usa i file in `backend/`:
 4. imposta nel `.env`:
    - `AI_PROVIDER=gemini` e `GEMINI_API_KEY=...`
    - oppure `AI_PROVIDER=openai` e `OPENAI_API_KEY=...`
+   - opzionale OpenAI:
+     - `OPENAI_MODEL=gpt-5-mini` (consigliato)
+     - `OPENAI_REASONING_EFFORT=auto` (switch low/medium automatico; `medium` su click "Chiedi suggerimento" e in endgame)
+     - `AI_MAX_OUTPUT_TOKENS=384`
    - opzionale Gemini:
      - `GEMINI_MODEL=gemini-2.0-flash` (consigliato)
      - `GEMINI_FALLBACK_MODELS=gemini-2.0-flash-lite,gemini-2.5-flash`

@@ -33,6 +33,7 @@ describe('GameStateService', () => {
     expect(unknownCount).toBe(40);
     expect(state.phase).toBe(GamePhase.INITIAL_FOUR);
     expect(state.turn).toBeNull();
+    expect(state.lastCaptureBy).toBeNull();
     expect(state.myCapturedCards).toEqual([]);
     expect(state.opponentCapturedCards).toEqual([]);
   });
@@ -171,11 +172,13 @@ describe('GameStateService', () => {
     expect(state.myCapturedCards).toContain(createCardId(Suit.Denari, 1));
     expect(state.myCapturedCards).toContain(createCardId(Suit.Bastoni, 1));
     expect(state.opponentCapturedCards).toEqual([]);
+    expect(state.lastCaptureBy).toBe('ME');
 
     service.clickTableCard(createCardId(Suit.Denari, 2));
 
     state = service.getCurrentState();
     expect(state.opponentCapturedCards).toContain(createCardId(Suit.Denari, 2));
     expect(state.opponentCapturedCards).toContain(createCardId(Suit.Coppe, 2));
+    expect(state.lastCaptureBy).toBe('OPPONENT');
   });
 });

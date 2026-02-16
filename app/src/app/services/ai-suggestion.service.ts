@@ -25,7 +25,16 @@ import {
 } from '../models/card.model';
 import { findCombinations } from '../utils/combinations.util';
 import { GameStateService } from './game-state.service';
-import { OpenAIService, OpenAiLegalMove, OpenAiQueryInput } from './openai.service';
+import {
+  OpenAIService,
+  OpenAiLegalMove,
+  OpenAiModelSelection,
+  OpenAiOpponentModel,
+  OpenAiQueryInput,
+  OpenAiReasoningMode,
+  OpenAiRequestSource,
+  OpenAiRules
+} from './openai.service';
 import { LocalStorageService } from './local-storage.service';
 import { ProbabilityService } from './probability.service';
 
@@ -33,10 +42,24 @@ import { ProbabilityService } from './probability.service';
   providedIn: 'root'
 })
 export class AISuggestionService implements OnDestroy {
+  private static readonly OPEN_AI_RULES: OpenAiRules = {
+    mustCaptureIfPlayableCardCanCapture: true,
+    mustPlayCapturingCardIfHaveOne: false,
+    capturePriority: 'free',
+    endOfHandLastTakerGetsTableRemainder: true,
+    aceValue: 1
+  };
+
   private readonly destroy$ = new Subject<void>();
   private readonly autoQueryStorageKey = 'ai_auto_query_enabled';
+  private readonly modelSelectionStorageKey = 'ai_model_selection';
+  private readonly reasoningModeStorageKey = 'ai_reasoning_mode';
   private readonly autoQueryEnabledSubject = new BehaviorSubject<boolean>(true);
+  private readonly modelSelectionSubject = new BehaviorSubject<OpenAiModelSelection>('gpt-5-mini');
+  private readonly reasoningModeSubject = new BehaviorSubject<OpenAiReasoningMode>('auto');
   readonly autoQueryEnabled$ = this.autoQueryEnabledSubject.asObservable();
+  readonly modelSelection$ = this.modelSelectionSubject.asObservable();
+  readonly reasoningMode$ = this.reasoningModeSubject.asObservable();
 
   private latestState: GameState | null = null;
   private latestProbabilities = new Map<number, number>();
@@ -51,22 +74,34 @@ export class AISuggestionService implements OnDestroy {
     if (typeof saved === 'boolean') {
       this.autoQueryEnabledSubject.next(saved);
     }
+    const savedModelSelection = this.localStorageService.load<OpenAiModelSelection>(this.modelSelectionStorageKey);
+    if (savedModelSelection === 'gpt-5-mini' || savedModelSelection === 'gpt-5.2') {
+      this.modelSelectionSubject.next(savedModelSelection);
+    }
+    const savedReasoningMode = this.localStorageService.load<OpenAiReasoningMode>(this.reasoningModeStorageKey);
+    if (savedReasoningMode === 'low' || savedReasoningMode === 'auto' || savedReasoningMode === 'medium') {
+      this.reasoningModeSubject.next(savedReasoningMode);
+    }
 
     combineLatest([
       this.gameStateService.state,
       this.probabilityService.probabilities$,
-      this.autoQueryEnabledSubject
+      this.autoQueryEnabledSubject,
+      this.modelSelectionSubject,
+      this.reasoningModeSubject
     ]).pipe(
       takeUntil(this.destroy$),
       tap(([state, probabilities]) => {
         this.latestState = state;
         this.latestProbabilities = probabilities;
       }),
-      map(([state, probabilities, autoQueryEnabled]) => ({
+      map(([state, probabilities, autoQueryEnabled, modelSelection, reasoningMode]) => ({
         state,
         probabilities,
         autoQueryEnabled,
-        key: this.buildTriggerKey(state, probabilities, autoQueryEnabled)
+        modelSelection,
+        reasoningMode,
+        key: this.buildTriggerKey(state, probabilities, autoQueryEnabled, modelSelection, reasoningMode)
       })),
       distinctUntilChanged((a, b) => a.key === b.key),
       filter(({ state, autoQueryEnabled }) =>
@@ -76,7 +111,7 @@ export class AISuggestionService implements OnDestroy {
         state.phase === GamePhase.PLAYING
       ),
       debounceTime(1000),
-      switchMap(({ state, probabilities }) => this.executeQuery(state, probabilities))
+      switchMap(({ state, probabilities }) => this.executeQuery(state, probabilities, 'auto'))
     ).subscribe();
   }
 
@@ -91,7 +126,7 @@ export class AISuggestionService implements OnDestroy {
       return;
     }
 
-    this.executeQuery(state, this.latestProbabilities).subscribe();
+    this.executeQuery(state, this.latestProbabilities, 'manual').subscribe();
   }
 
   setAutoQueryEnabled(enabled: boolean): void {
@@ -103,12 +138,42 @@ export class AISuggestionService implements OnDestroy {
     this.localStorageService.save(this.autoQueryStorageKey, enabled);
   }
 
+  getModelSelection(): OpenAiModelSelection {
+    return this.modelSelectionSubject.value;
+  }
+
+  setModelSelection(selection: OpenAiModelSelection): void {
+    if (this.modelSelectionSubject.value === selection) {
+      return;
+    }
+
+    this.modelSelectionSubject.next(selection);
+    this.localStorageService.save(this.modelSelectionStorageKey, selection);
+  }
+
+  getReasoningMode(): OpenAiReasoningMode {
+    return this.reasoningModeSubject.value;
+  }
+
+  setReasoningMode(mode: OpenAiReasoningMode): void {
+    if (this.reasoningModeSubject.value === mode) {
+      return;
+    }
+
+    this.reasoningModeSubject.next(mode);
+    this.localStorageService.save(this.reasoningModeStorageKey, mode);
+  }
+
   isApiConfigured(): boolean {
     const endpoint = environment.openaiProxyUrl.trim();
     return endpoint.length > 0 && endpoint !== 'YOUR_BACKEND_ENDPOINT_HERE';
   }
 
-  private executeQuery(state: GameState, probabilities: Map<number, number>): Observable<void> {
+  private executeQuery(
+    state: GameState,
+    probabilities: Map<number, number>,
+    requestSource: OpenAiRequestSource
+  ): Observable<void> {
     if (!this.isApiConfigured()) {
       this.gameStateService.setAiLoading(false);
       this.gameStateService.setAiSuggestion('Configura endpoint backend OpenAI in environment.ts');
@@ -120,7 +185,7 @@ export class AISuggestionService implements OnDestroy {
       return of(void 0);
     }
 
-    const input = this.buildQueryInput(state, probabilities);
+    const input = this.buildQueryInput(state, probabilities, requestSource);
 
     this.gameStateService.setAiLoading(true);
 
@@ -139,7 +204,11 @@ export class AISuggestionService implements OnDestroy {
     );
   }
 
-  private buildQueryInput(state: GameState, probabilities: Map<number, number>): OpenAiQueryInput {
+  private buildQueryInput(
+    state: GameState,
+    probabilities: Map<number, number>,
+    requestSource: OpenAiRequestSource
+  ): OpenAiQueryInput {
     const probabilitiesByRank: Record<number, number> = {};
     for (let rank = 1; rank <= 10; rank += 1) {
       probabilitiesByRank[rank] = this.roundTo6(probabilities.get(rank) ?? 0);
@@ -149,20 +218,47 @@ export class AISuggestionService implements OnDestroy {
       .filter(([, cardState]) => cardState === CardState.PLAYED)
       .map(([cardId]) => this.cardLabel(cardId));
 
-    const unknownCardsCount = Object.values(state.cardStates).filter((cardState) => cardState === CardState.UNKNOWN).length;
+    const unseenCardIds = this.listUnseenCardIds(state);
+    const unseenCardsCount = unseenCardIds.length;
+    const deckCardsRemaining = this.computeDeckCardsRemaining(unseenCardsCount, state.opponentCardCount);
+    const isEndgame = deckCardsRemaining === 0;
+    const knownOpponentCardIds = isEndgame ? unseenCardIds : [];
+    const knownOpponentCards = knownOpponentCardIds.map((cardId) => this.cardLabel(cardId));
+    const opponentHandIsKnown = isEndgame && knownOpponentCards.length === state.opponentCardCount;
+    const certainOpponentRanks = this.extractCertainOpponentRanks(probabilitiesByRank);
     const tableCards = state.cardsOnTable
       .map((cardId) => CARD_BY_ID[cardId])
       .filter((card): card is Card => !!card);
+    const playsRemainingMe = state.myHand.length;
+    const playsRemainingOpponent = state.opponentCardCount;
+    const pliesToHandEnd = playsRemainingMe + playsRemainingOpponent;
+    const opponentModel = this.buildOpponentModel(isEndgame, opponentHandIsKnown, pliesToHandEnd);
+    const modelSelection = this.modelSelectionSubject.value;
+    const reasoningMode = this.reasoningModeSubject.value;
 
     return {
+      rules: AISuggestionService.OPEN_AI_RULES,
       myHand: state.myHand.map((cardId) => this.cardLabel(cardId)),
       cardsOnTable: state.cardsOnTable.map((cardId) => this.cardLabel(cardId)),
       playedCards,
       myCapturedCards: state.myCapturedCards.map((cardId) => this.cardLabel(cardId)),
       opponentCapturedCards: state.opponentCapturedCards.map((cardId) => this.cardLabel(cardId)),
-      unknownCardsCount,
+      unseenCardsCount,
+      deckCardsRemaining,
+      isEndgame,
+      opponentHandIsKnown,
+      knownOpponentCards,
+      lastCaptureBy: state.lastCaptureBy,
       probabilitiesByRank,
+      certainOpponentRanks,
       opponentCardCount: state.opponentCardCount,
+      playsRemainingMe,
+      playsRemainingOpponent,
+      pliesToHandEnd,
+      requestSource,
+      modelSelection,
+      reasoningMode,
+      opponentModel,
       legalMoves: state.myHand
         .map((cardId) => this.buildLegalMove(cardId, tableCards))
         .filter((move): move is OpenAiLegalMove => !!move)
@@ -172,7 +268,9 @@ export class AISuggestionService implements OnDestroy {
   private buildTriggerKey(
     state: GameState,
     probabilities: Map<number, number>,
-    autoQueryEnabled: boolean
+    autoQueryEnabled: boolean,
+    modelSelection: OpenAiModelSelection,
+    reasoningMode: OpenAiReasoningMode
   ): string {
     const probabilityVector = Array.from(
       { length: 10 },
@@ -186,10 +284,13 @@ export class AISuggestionService implements OnDestroy {
       myHand: state.myHand,
       cardsOnTable: state.cardsOnTable,
       opponentCardCount: state.opponentCardCount,
+      lastCaptureBy: state.lastCaptureBy,
       pendingPlayedCard: state.pendingPlayedCard,
       selectedCombination: state.selectedCombination,
       probabilityVector,
-      autoQueryEnabled
+      autoQueryEnabled,
+      modelSelection,
+      reasoningMode
     });
   }
 
@@ -235,5 +336,43 @@ export class AISuggestionService implements OnDestroy {
 
   private roundTo6(value: number): number {
     return Math.round((value + Number.EPSILON) * 1_000_000) / 1_000_000;
+  }
+
+  private listUnseenCardIds(state: GameState): string[] {
+    return Object.entries(state.cardStates)
+      .filter(([, cardState]) => cardState === CardState.UNKNOWN)
+      .map(([cardId]) => cardId);
+  }
+
+  private computeDeckCardsRemaining(unseenCardsCount: number, opponentCardCount: number): number {
+    return Math.max(0, unseenCardsCount - Math.max(0, opponentCardCount));
+  }
+
+  private extractCertainOpponentRanks(probabilitiesByRank: Record<number, number>): number[] {
+    const result: number[] = [];
+
+    for (let rank = 1; rank <= 10; rank += 1) {
+      const value = Number(probabilitiesByRank[rank] ?? 0);
+      if (value >= 0.999999) {
+        result.push(rank);
+      }
+    }
+
+    return result;
+  }
+
+  private buildOpponentModel(
+    isEndgame: boolean,
+    opponentHandIsKnown: boolean,
+    pliesToHandEnd: number
+  ): OpenAiOpponentModel {
+    const shortHorizonEndgame = pliesToHandEnd > 0 && pliesToHandEnd <= 6;
+
+    return {
+      assumePerfectEndgamePlay: isEndgame || shortHorizonEndgame,
+      countsCardsAndInfersHands: isEndgame || opponentHandIsKnown || shortHorizonEndgame,
+      playsToMaximizeOwnOutcome: true,
+      evaluationMethod: 'maximin'
+    };
   }
 }

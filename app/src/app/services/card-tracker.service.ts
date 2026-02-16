@@ -246,6 +246,8 @@ export class CardTrackerService {
     playedCardId: string,
     capturedIds: string[]
   ): void {
+    snapshot.lastCaptureBy = isMyPlay ? 'ME' : 'OPPONENT';
+
     const target = isMyPlay ? snapshot.myCapturedCards : snapshot.opponentCapturedCards;
     const merged = [...target, playedCardId, ...capturedIds];
     const unique = [...new Set(merged)];

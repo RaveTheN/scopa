@@ -4,6 +4,7 @@ import { map } from 'rxjs';
 import { CARD_BY_ID, CardState, createCardId, GamePhase, Suit } from '../../models/card.model';
 import { AISuggestionService } from '../../services/ai-suggestion.service';
 import { GameStateService } from '../../services/game-state.service';
+import { OpenAiModelSelection, OpenAiReasoningMode } from '../../services/openai.service';
 
 interface StatsViewModel {
   denariPlayed: number;
@@ -31,6 +32,8 @@ export class StatsPanelComponent {
   private readonly totalCards = 40;
 
   readonly autoQueryEnabled$ = this.aiSuggestionService.autoQueryEnabled$;
+  readonly modelSelection$ = this.aiSuggestionService.modelSelection$;
+  readonly reasoningMode$ = this.aiSuggestionService.reasoningMode$;
   readonly stats$ = this.gameStateService.state.pipe(
     map((state): StatsViewModel => {
       const knownCardIds = Object.entries(state.cardStates)
@@ -96,6 +99,51 @@ export class StatsPanelComponent {
   onShowProbabilitiesToggle(event: Event): void {
     const target = event.target as HTMLInputElement | null;
     this.gameStateService.setShowTableProbabilities(!!target?.checked);
+  }
+
+  onModelToggle(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    const nextModel: OpenAiModelSelection = target?.checked ? 'gpt-5.2' : 'gpt-5-mini';
+    this.aiSuggestionService.setModelSelection(nextModel);
+  }
+
+  onReasoningAutoToggle(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    const checked = !!target?.checked;
+    const currentMode = this.aiSuggestionService.getReasoningMode();
+
+    if (checked) {
+      this.aiSuggestionService.setReasoningMode('auto');
+      return;
+    }
+
+    if (currentMode === 'auto') {
+      this.aiSuggestionService.setReasoningMode('low');
+    }
+  }
+
+  onReasoningMediumToggle(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    const checked = !!target?.checked;
+    const currentMode = this.aiSuggestionService.getReasoningMode();
+
+    if (checked) {
+      if (currentMode !== 'medium') {
+        const confirmed = window.confirm(
+          'Passando a reasoning medium aumentano costi e tempi della risposta. Vuoi continuare?'
+        );
+        if (!confirmed) {
+          return;
+        }
+      }
+
+      this.aiSuggestionService.setReasoningMode('medium');
+      return;
+    }
+
+    if (currentMode === 'medium') {
+      this.aiSuggestionService.setReasoningMode('auto');
+    }
   }
 
   private toPhaseLabel(phase: GamePhase): string {

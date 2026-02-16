@@ -5,14 +5,31 @@ import { AISuggestionService } from '../../services/ai-suggestion.service';
 import { CardTrackerService } from '../../services/card-tracker.service';
 import { GameStateService } from '../../services/game-state.service';
 import { LocalStorageService } from '../../services/local-storage.service';
+import { OpenAiModelSelection, OpenAiReasoningMode } from '../../services/openai.service';
 import { StatsPanelComponent } from './stats-panel.component';
 
 class AISuggestionServiceStub {
   private readonly autoQueryEnabledSubject = new BehaviorSubject<boolean>(true);
+  private readonly modelSelectionSubject = new BehaviorSubject<OpenAiModelSelection>('gpt-5-mini');
+  private readonly reasoningModeSubject = new BehaviorSubject<OpenAiReasoningMode>('auto');
   readonly autoQueryEnabled$ = this.autoQueryEnabledSubject.asObservable();
+  readonly modelSelection$ = this.modelSelectionSubject.asObservable();
+  readonly reasoningMode$ = this.reasoningModeSubject.asObservable();
 
   setAutoQueryEnabled(enabled: boolean): void {
     this.autoQueryEnabledSubject.next(enabled);
+  }
+
+  setModelSelection(selection: OpenAiModelSelection): void {
+    this.modelSelectionSubject.next(selection);
+  }
+
+  getReasoningMode(): OpenAiReasoningMode {
+    return this.reasoningModeSubject.value;
+  }
+
+  setReasoningMode(mode: OpenAiReasoningMode): void {
+    this.reasoningModeSubject.next(mode);
   }
 }
 

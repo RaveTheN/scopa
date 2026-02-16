@@ -29,5 +29,39 @@
     <span class="auto-ai-toggle-slider" aria-hidden="true"></span>
     <span>AI auto</span>
   </label>
+  <label class="auto-ai-toggle" for="model-toggle">
+    <input
+      id="model-toggle"
+      type="checkbox"
+      class="auto-ai-toggle-input"
+      [checked]="((modelSelection$ | async) ?? 'gpt-5-mini') === 'gpt-5.2'"
+      (change)="onModelToggle($event)"
+    />
+    <span class="auto-ai-toggle-slider" aria-hidden="true"></span>
+    <span>GPT-5.2 (off: mini)</span>
+  </label>
+  <label class="auto-ai-toggle" for="reasoning-auto-toggle">
+    <input
+      id="reasoning-auto-toggle"
+      type="checkbox"
+      class="auto-ai-toggle-input"
+      [checked]="((reasoningMode$ | async) ?? 'auto') === 'auto'"
+      (change)="onReasoningAutoToggle($event)"
+    />
+    <span class="auto-ai-toggle-slider" aria-hidden="true"></span>
+    <span>Reasoning auto</span>
+  </label>
+  <label class="auto-ai-toggle" for="reasoning-medium-toggle">
+    <input
+      id="reasoning-medium-toggle"
+      type="checkbox"
+      class="auto-ai-toggle-input"
+      [checked]="((reasoningMode$ | async) ?? 'auto') === 'medium'"
+      (change)="onReasoningMediumToggle($event)"
+    />
+    <span class="auto-ai-toggle-slider" aria-hidden="true"></span>
+    <span>Reasoning medium</span>
+  </label>
+  <div class="reasoning-note">Reasoning low: entrambi off</div>
   <div>Fase: {{ stats.phaseLabel }}</div>
 </div>

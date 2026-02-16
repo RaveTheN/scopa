@@ -19,9 +19,10 @@ npm install
 3. Crea `.env` partendo da `.env.example`.
 4. Imposta:
    - `OPENAI_API_KEY=...`
-   - opzionale `OPENAI_MODEL=gpt-4o-mini`
+   - opzionale `OPENAI_MODEL=gpt-5-mini`
    - opzionale `AI_MAX_OUTPUT_TOKENS=384` (piu spazio per motivazione strategica)
-   - opzionale `OPENAI_REASONING_EFFORT=minimal` (consigliato con modelli reasoning, es. `gpt-5-mini`)
+   - opzionale `OPENAI_REASONING_EFFORT=low|medium|high|minimal|auto`
+     - se omesso (o `auto`) il backend usa switch automatico su modelli `gpt-5*`: `low` di default, `medium` su richiesta manuale ("Chiedi suggerimento") o in endgame/mano avversaria nota/`pliesToHandEnd <= 6`
 
 5. Avvia:
 
@@ -47,9 +48,9 @@ openaiProxyUrl: 'https://TUO-BACKEND/api/openai/suggestion'
 Variabili consigliate su Render:
 
 - `OPENAI_API_KEY=...`
-- `OPENAI_MODEL=gpt-4o-mini`
+- `OPENAI_MODEL=gpt-5-mini`
 - `AI_MAX_OUTPUT_TOKENS=384`
-- `OPENAI_REASONING_EFFORT=minimal`
+- `OPENAI_REASONING_EFFORT=auto`
 - `ALLOWED_ORIGINS=https://ravethen.github.io`
 
 ## Modello fine-tuned (opzionale)
@@ -91,6 +92,15 @@ Formati input supportati:
   - `Motivo`
   - `Attenzione` (max 3 note)
   - `Prossimo turno` (se disponibile)
+- Ogni chiamata logga una stima costo token lato backend (`[openai-cost] ...`).
+- La risposta API include anche:
+  - `usage` (prompt/completion/total/reasoning/cachedPrompt tokens)
+  - `estimatedCostUsd`
+  - `estimatedCostBreakdownUsd` (`input`, `cachedInput`, `output`)
+- Il payload puo forzare `modelSelection` (`gpt-5-mini` / `gpt-5.2`) e `reasoningMode`:
+  - `low`: sempre low
+  - `auto`: low in generale, medium su richiesta manuale/endgame
+  - `medium`: sempre medium (conferma UI consigliata per costi/tempi)
 
 ## Sicurezza
 

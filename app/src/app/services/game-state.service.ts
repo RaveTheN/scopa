@@ -293,6 +293,9 @@ export class GameStateService {
       : GamePhase.INITIAL_FOUR;
 
     const turn = raw.turn === 'ME' || raw.turn === 'OPPONENT' ? raw.turn : null;
+    const lastCaptureBy = raw.lastCaptureBy === 'ME' || raw.lastCaptureBy === 'OPPONENT'
+      ? raw.lastCaptureBy
+      : null;
 
     const myHand = this.uniqueIds(Array.isArray(raw.myHand) ? raw.myHand : []).filter((id) => id in CARD_BY_ID).slice(0, 3);
     const cardsOnTable = this.uniqueIds(Array.isArray(raw.cardsOnTable) ? raw.cardsOnTable : []).filter((id) => id in CARD_BY_ID);
@@ -331,6 +334,7 @@ export class GameStateService {
       cardStates,
       phase,
       turn,
+      lastCaptureBy,
       showTableProbabilities: typeof raw.showTableProbabilities === 'boolean'
         ? raw.showTableProbabilities
         : true,
@@ -374,6 +378,7 @@ export class GameStateService {
       cardStates,
       phase: GamePhase.INITIAL_FOUR,
       turn: null,
+      lastCaptureBy: null,
       showTableProbabilities: true,
       myHand: [],
       opponentCardCount: 3,
@@ -392,6 +397,7 @@ export class GameStateService {
       cardStates: { ...state.cardStates },
       phase: state.phase,
       turn: state.turn,
+      lastCaptureBy: state.lastCaptureBy,
       showTableProbabilities: state.showTableProbabilities,
       myHand: [...state.myHand],
       opponentCardCount: state.opponentCardCount,
@@ -410,6 +416,7 @@ export class GameStateService {
       cardStates: { ...snapshot.cardStates },
       phase: snapshot.phase,
       turn: snapshot.turn,
+      lastCaptureBy: snapshot.lastCaptureBy,
       showTableProbabilities: snapshot.showTableProbabilities,
       myHand: [...snapshot.myHand],
       opponentCardCount: snapshot.opponentCardCount,

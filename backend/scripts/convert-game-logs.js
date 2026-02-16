@@ -321,11 +321,6 @@ function findCombinations(targetSum, tableCards) {
     return [];
   }
 
-  const exactMatches = tableCards.filter((card) => card.rank === targetSum);
-  if (exactMatches.length > 0) {
-    return exactMatches.map((card) => [card]);
-  }
-
   const combinations = [];
   const n = tableCards.length;
   const maxMask = 1 << n;
@@ -441,7 +436,7 @@ function buildPayload(snapshot) {
     .filter(([, state]) => PLAYED_STATES.has(state))
     .map(([cardId]) => cardLabel(cardId));
 
-  const unknownCardsCount = Object.values(snapshot.cardStates)
+  const unseenCardsCount = Object.values(snapshot.cardStates)
     .filter((state) => state === CARD_STATE.UNKNOWN)
     .length;
 
@@ -449,7 +444,7 @@ function buildPayload(snapshot) {
     myHand: snapshot.myHand.map((cardId) => cardLabel(cardId)),
     cardsOnTable: snapshot.cardsOnTable.map((cardId) => cardLabel(cardId)),
     playedCards,
-    unknownCardsCount,
+    unseenCardsCount,
     probabilitiesByRank,
     opponentCardCount: snapshot.opponentCardCount,
     legalMoves: buildLegalMoves(snapshot)
@@ -508,7 +503,7 @@ function buildUserPrompt(payload) {
     `Carte nella mia mano: ${Array.isArray(payload.myHand) && payload.myHand.length ? payload.myHand.join(', ') : 'nessuna'}`,
     `Carte sul tavolo: ${Array.isArray(payload.cardsOnTable) && payload.cardsOnTable.length ? payload.cardsOnTable.join(', ') : 'nessuna'}`,
     `Carte gia giocate/uscite: ${Array.isArray(payload.playedCards) && payload.playedCards.length ? payload.playedCards.join(', ') : 'nessuna'}`,
-    `Carte sconosciute: ${Number(payload.unknownCardsCount) || 0}`,
+    `Carte non viste (unseen): ${Number(payload.unseenCardsCount) || 0}`,
     `Probabilita per valore (%): ${formatProbabilities(payload.probabilitiesByRank)}`,
     `Carte avversario: ${Number(payload.opponentCardCount) || 0}`,
     'Mosse legali disponibili (gia validate dal motore di gioco):',
@@ -576,12 +571,12 @@ function defaultSystemPrompt() {
     'Sei un assistente strategico per Scopa classica italiana (mazzo 40 carte, 4 semi: Denari, Coppe, Spade, Bastoni).',
     '',
     'REGOLE DI PRESA (TASSATIVE):',
-    "1. Si gioca UNA carta dalla mano.",
-    "2. Presa singola: se sul tavolo c'e una carta con lo STESSO valore, DEVI prenderla (obbligatoria, ha priorita sulla presa a somma).",
-    "3. Presa a somma: se NON c'e carta singola di pari valore, puoi prendere un insieme di carte la cui somma e UGUALE al valore della carta giocata.",
-    "4. Se non puoi fare nessuna presa, scarti la carta sul tavolo.",
+    "1. mustCaptureIfPlayableCardCanCapture=true: dopo aver giocato una carta, se quella carta ha almeno una presa legale devi effettuare una presa.",
+    "2. mustPlayCapturingCardIfHaveOne=false: non sei obbligato a giocare una carta che prende; puoi giocare anche una carta che non prende.",
+    "3. capturePriority=free: se la carta giocata ha piu prese legali (carta singola uguale e/o combinazioni a somma), puoi scegliere liberamente quale presa fare.",
+    "4. Se non puoi fare nessuna presa con la carta giocata, scarti la carta sul tavolo.",
     "5. Scopa: se prendi TUTTE le carte dal tavolo, e una Scopa (1 punto extra).",
-    '6. NON ESISTE la regola del 15. NON ESISTE nessuna soglia o somma target diversa dal valore della carta giocata. Non menzionare mai il 15 o qualsiasi altro valore sopra il 10 o qualsiasi somma che faccia piu di 10.',
+    '6. NON ESISTE la regola del 15. NON ESISTE nessuna soglia o somma target diversa dal valore della carta giocata.',
     '',
     'VALORI: Asso=1, 2-7=valore facciale, Donna=8, Cavallo=9, Re=10.',
     '',

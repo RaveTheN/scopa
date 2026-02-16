@@ -5,18 +5,43 @@ dotenv.config();
 
 const app = express();
 const port = Number(process.env.PORT || 8787);
+const OPENAI_PRICING_USD_PER_1M = Object.freeze({
+  'gpt-5-mini': Object.freeze({
+    input: 0.25,
+    cachedInput: 0.025,
+    output: 2.0
+  }),
+  'gpt-5.2': Object.freeze({
+    input: 1.75,
+    cachedInput: 0.175,
+    output: 14.0
+  }),
+  'gpt-5.2-pro': Object.freeze({
+    input: 21.0,
+    output: 168.0
+  })
+});
 const SYSTEM_PROMPT = `Sei un assistente strategico per Scopa classica italiana (mazzo 40 carte, 4 semi: Denari, Coppe, Spade, Bastoni).
 
-REGOLE DI PRESA (TASSATIVE):
+REGOLE (TASSATIVE):
 1. Si gioca UNA carta dalla mano.
-2. Presa singola: se sul tavolo c'e una carta con lo STESSO valore, DEVI prenderla (obbligatoria, prioritaria sulla presa a somma).
-3. Se sul tavolo ci sono due o piu carte con lo stesso valore della carta giocata, devi prenderne UNA di quelle (a scelta), mai una somma alternativa.
-4. Presa a somma: solo se NON c'e nessuna carta singola di pari valore, puoi prendere un insieme di carte la cui somma e UGUALE al valore della carta giocata.
-5. Se non puoi fare nessuna presa, scarti la carta sul tavolo.
-6. Scopa: se prendi TUTTE le carte dal tavolo, e una Scopa (1 punto extra).
-7. NON ESISTE la regola del 15. NON ESISTE nessuna soglia o somma target diversa dal valore della carta giocata.
+2. mustCaptureIfPlayableCardCanCapture=true: dopo aver giocato UNA carta dalla mano, se quella carta ha almeno una presa legale devi effettuare una presa.
+3. mustPlayCapturingCardIfHaveOne=false: non sei obbligato a giocare una carta che prende; puoi giocare anche una carta che non prende.
+4. Se sul tavolo ci sono due o piu carte con lo stesso valore della carta giocata, devi prenderne UNA di quelle (a scelta), mai una somma alternativa.
+5. Presa a somma: solo se NON c'e nessuna carta singola di pari valore, puoi prendere un insieme di carte la cui somma e UGUALE al valore della carta giocata.
+6. Se la carta giocata non ha prese legali, la carta resta sul tavolo come scarto.
+7. Scopa: se prendi TUTTE le carte dal tavolo fai una Scopa (1 punto extra).
+8. NON ESISTE la regola del 15. NON ESISTE nessuna soglia o somma target diversa dal valore della carta giocata o superiore al 10.
+9. A fine mano, se il mazzo è vuoto, l'ultiomo giocatore che ha fatto una presa prende tutte le carte residue sul tavolo (se endOfHandLastTakerGetsTableRemainder=true).
+10. Non è possibile fare Scope con la carta giocata se quella carta è l'ultima rimasta in mano (deve restare almeno una carta in mano dopo aver giocato per poter fare Scopa).
 
-VALORI: Asso=1, 2-7=valore facciale, Donna=8, Cavallo=9, Re=10.
+MANO FINALE (TASSATIVE):
+1. Quando "Fine partita (mazzo vuoto)" = vero, le "Carte certe avversario" sono la mano reale dell'avversario (probabilita 100%).
+2. I "Valori certi in mano avversario (prob=1)" indicano almeno una carta certamente in mano avversaria per quei valori.
+3. endOfHandLastTakerGetsTableRemainder=true: a fine mano, dopo l'ultima carta giocata, tutte le carte residue sul tavolo vanno all'ultimo giocatore che ha fatto una presa ("Ultima presa di").
+4. Se "Ultima presa di" e "nessuno", non assegnare carte residue del tavolo.
+
+VALORI: aceValue=1. Asso=1, 2-7=valore facciale, Donna=8, Cavallo=9, Re=10.
 
 IMPORTANTE:
 - Ti vengono fornite le mosse legali gia validate dal motore di gioco.
@@ -33,17 +58,20 @@ OBIETTIVI STRATEGICI (in ordine):
 7. Usare le probabilita avversarie per pianificare difesa e controllo.
 
 PROFONDITA DI RAGIONAMENTO:
-- Valuta sempre la mossa corrente + risposta avversaria piu probabile + tua replica successiva.
+- Valuta sempre la mossa corrente + risposta avversaria piu probabile + tua replica successiva + possibilità scopa per l'avversario con le carte rimaste.
 - Bilancia attacco (punti immediati) e difesa (riduzione rischio al turno dopo).
 - Se ci sono almeno 2 mosse legali, confronta esplicitamente la migliore con almeno una alternativa.
+- Se "Fine partita (mazzo vuoto)" = vero && la mano avversaria è nota, pianifica la linea completa fino all'ultima carta.
+- Se il payload indica avversario che conta le carte / gioco ottimo, assumi best response avversaria e valuta in ottica maximin (caso peggiore per me).
 
 FORMATO RISPOSTA: JSON rigoroso con questi campi:
 - "best_card": stringa, DEVE essere una delle carte elencate nelle mosse legali (copiala esattamente).
 - "confidence": stringa breve ("alta", "media", "bassa").
 - "short_reason": 3-5 frasi concise ma concrete; includi vantaggio immediato, rischio difensivo e piano a due mosse.
-- "alternative_rejected": stringa breve (1-2 frasi) su una mossa alternativa legale e perche e peggiore.
 - "risk_notes": array di 1-3 stringhe brevi su rischi reali.
 - "next_turn_outlook": stringa breve (1-2 frasi) su cosa potrebbe fare l'avversario e contromisura.
+
+Note: "Assumi che l'avversario sappia (o deduca con conteggio carte) cosa mi resta in mano, soprattutto a fine mano. Scegli la mia mossa che massimizza il risultato nel caso peggiore (miglior risposta dell'avversario)."
 
 Non aggiungere testo fuori dal JSON.
 Rispondi con un singolo oggetto JSON, senza markdown, senza backticks.
@@ -81,9 +109,9 @@ app.post('/api/openai/suggestion', async (req, res) => {
   try {
     const payload = req.body || {};
     const userPrompt = buildUserPrompt(payload);
-    const suggestion = await queryOpenAi(userPrompt, payload);
+    const result = await queryOpenAi(userPrompt, payload);
 
-    res.json({ suggestion });
+    res.json(result);
   } catch (error) {
     res.status(error.statusCode || 500).json({ error: error.message || 'Errore backend durante la chiamata AI.' });
   }
@@ -92,6 +120,117 @@ app.post('/api/openai/suggestion', async (req, res) => {
 app.listen(port, () => {
   console.log(`Scopa backend in ascolto su http://localhost:${port}`);
 });
+
+function toSafeInteger(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 0;
+  }
+
+  return Math.floor(parsed);
+}
+
+function normalizeModelKey(model) {
+  return String(model || '')
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, '-');
+}
+
+function resolvePricingForModel(model) {
+  const normalized = normalizeModelKey(model);
+  if (!normalized) {
+    return null;
+  }
+
+  for (const [baseModel, pricing] of Object.entries(OPENAI_PRICING_USD_PER_1M)) {
+    if (normalized === baseModel || normalized.startsWith(`${baseModel}-`)) {
+      return { baseModel, ...pricing };
+    }
+  }
+
+  return null;
+}
+
+function buildUsageSnapshot(usage) {
+  if (!usage || typeof usage !== 'object') {
+    return null;
+  }
+
+  return {
+    promptTokens: toSafeInteger(usage.prompt_tokens),
+    completionTokens: toSafeInteger(usage.completion_tokens),
+    totalTokens: toSafeInteger(usage.total_tokens),
+    reasoningTokens: toSafeInteger(usage?.completion_tokens_details?.reasoning_tokens),
+    cachedPromptTokens: toSafeInteger(usage?.prompt_tokens_details?.cached_tokens)
+  };
+}
+
+function roundTo(value, digits = 9) {
+  const factor = 10 ** digits;
+  return Math.round((value + Number.EPSILON) * factor) / factor;
+}
+
+function estimateOpenAiCostUsd(model, usageSnapshot) {
+  if (!usageSnapshot) {
+    return null;
+  }
+
+  const pricing = resolvePricingForModel(model);
+  if (!pricing) {
+    return null;
+  }
+
+  const promptTokens = Math.max(0, usageSnapshot.promptTokens);
+  const completionTokens = Math.max(0, usageSnapshot.completionTokens);
+  const cachedPromptTokens = Math.min(
+    Math.max(0, usageSnapshot.cachedPromptTokens),
+    promptTokens
+  );
+  const uncachedPromptTokens = Math.max(0, promptTokens - cachedPromptTokens);
+  const cachedInputPrice = typeof pricing.cachedInput === 'number'
+    ? pricing.cachedInput
+    : pricing.input;
+
+  const inputCostUsd = (uncachedPromptTokens * pricing.input) / 1_000_000;
+  const cachedInputCostUsd = (cachedPromptTokens * cachedInputPrice) / 1_000_000;
+  const outputCostUsd = (completionTokens * pricing.output) / 1_000_000;
+  const totalCostUsd = inputCostUsd + cachedInputCostUsd + outputCostUsd;
+
+  return {
+    model: normalizeModelKey(model),
+    pricingModel: pricing.baseModel,
+    inputCostUsd: roundTo(inputCostUsd),
+    cachedInputCostUsd: roundTo(cachedInputCostUsd),
+    outputCostUsd: roundTo(outputCostUsd),
+    totalCostUsd: roundTo(totalCostUsd),
+    promptTokens,
+    completionTokens,
+    cachedPromptTokens,
+    reasoningTokens: usageSnapshot.reasoningTokens
+  };
+}
+
+function logCostEstimate(costEstimate) {
+  if (!costEstimate) {
+    return;
+  }
+
+  console.log(
+    [
+      `[openai-cost] model=${costEstimate.model}`,
+      `pricing=${costEstimate.pricingModel}`,
+      `prompt=${costEstimate.promptTokens}`,
+      `cached_prompt=${costEstimate.cachedPromptTokens}`,
+      `completion=${costEstimate.completionTokens}`,
+      `reasoning=${costEstimate.reasoningTokens}`,
+      `usd_total=${costEstimate.totalCostUsd.toFixed(6)}`,
+      `usd_input=${costEstimate.inputCostUsd.toFixed(6)}`,
+      `usd_cached_input=${costEstimate.cachedInputCostUsd.toFixed(6)}`,
+      `usd_output=${costEstimate.outputCostUsd.toFixed(6)}`
+    ].join(' ')
+  );
+}
 
 function formatProbabilities(probabilitiesByRank) {
   const parts = [];
@@ -183,18 +322,155 @@ function formatCardList(cards, maxItems = 18) {
   return `${shown} ... (+${compact.length - maxItems})`;
 }
 
+function formatBoolean(value) {
+  return value ? 'si' : 'no';
+}
+
+function normalizeRequestSource(value) {
+  const normalized = typeof value === 'string'
+    ? value.trim().toLowerCase()
+    : '';
+
+  return normalized === 'manual' ? 'manual' : 'auto';
+}
+
+function normalizeModelSelection(value) {
+  const normalized = typeof value === 'string'
+    ? value.trim().toLowerCase()
+    : '';
+
+  if (normalized === 'gpt-5-mini') {
+    return 'gpt-5-mini';
+  }
+
+  if (normalized === 'gpt-5.2') {
+    return 'gpt-5.2';
+  }
+
+  return null;
+}
+
+function normalizeReasoningMode(value) {
+  const normalized = typeof value === 'string'
+    ? value.trim().toLowerCase()
+    : '';
+
+  if (normalized === 'low' || normalized === 'auto' || normalized === 'medium') {
+    return normalized;
+  }
+
+  return null;
+}
+
+function normalizeRules(rules) {
+  const source = rules && typeof rules === 'object' ? rules : {};
+  const capturePriority = typeof source.capturePriority === 'string'
+    ? source.capturePriority.trim().toLowerCase()
+    : '';
+
+  return {
+    mustCaptureIfPlayableCardCanCapture: source.mustCaptureIfPlayableCardCanCapture !== false,
+    mustPlayCapturingCardIfHaveOne: source.mustPlayCapturingCardIfHaveOne === true,
+    capturePriority: capturePriority || 'free',
+    endOfHandLastTakerGetsTableRemainder: source.endOfHandLastTakerGetsTableRemainder !== false,
+    aceValue: Number(source.aceValue) === 1 ? 1 : 1
+  };
+}
+
+function normalizeOpponentModel(opponentModel, isEndgame, opponentHandIsKnown, pliesToHandEnd) {
+  const source = opponentModel && typeof opponentModel === 'object' ? opponentModel : {};
+  const normalizedPlies = Math.max(0, Number(pliesToHandEnd) || 0);
+  const shortHorizonEndgame = normalizedPlies > 0 && normalizedPlies <= 6;
+
+  return {
+    assumePerfectEndgamePlay: source.assumePerfectEndgamePlay === undefined
+      ? (Boolean(isEndgame) || shortHorizonEndgame)
+      : Boolean(source.assumePerfectEndgamePlay),
+    countsCardsAndInfersHands: source.countsCardsAndInfersHands === undefined
+      ? (Boolean(isEndgame) || Boolean(opponentHandIsKnown) || shortHorizonEndgame)
+      : Boolean(source.countsCardsAndInfersHands),
+    playsToMaximizeOwnOutcome: source.playsToMaximizeOwnOutcome === undefined
+      ? true
+      : Boolean(source.playsToMaximizeOwnOutcome),
+    evaluationMethod: typeof source.evaluationMethod === 'string' && source.evaluationMethod.trim()
+      ? source.evaluationMethod.trim().toLowerCase()
+      : 'maximin'
+  };
+}
+
+function shouldUseMediumReasoning(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return false;
+  }
+
+  const requestSource = normalizeRequestSource(payload.requestSource);
+  const isEndgame = payload.isEndgame === true;
+  const opponentHandIsKnown = payload.opponentHandIsKnown === true;
+  const pliesToHandEnd = Math.max(0, Number(payload.pliesToHandEnd) || 0);
+  const opponentModel = normalizeOpponentModel(
+    payload.opponentModel,
+    isEndgame,
+    opponentHandIsKnown,
+    pliesToHandEnd
+  );
+
+  return requestSource === 'manual'
+    || isEndgame
+    || opponentHandIsKnown
+    || (pliesToHandEnd > 0 && pliesToHandEnd <= 6)
+    || opponentModel.assumePerfectEndgamePlay;
+}
+
 function buildUserPrompt(payload) {
+  const legacyUnknownCardsCount = payload?.unknownCardsCount;
+
   const {
     myHand = [],
     cardsOnTable = [],
     playedCards = [],
     myCapturedCards = [],
     opponentCapturedCards = [],
-    unknownCardsCount = 0,
+    rules = {},
+    unseenCardsCount = null,
+    deckCardsRemaining = 0,
+    isEndgame = false,
+    opponentHandIsKnown = false,
+    knownOpponentCards = [],
+    lastCaptureBy = null,
     probabilitiesByRank = {},
+    certainOpponentRanks = [],
     opponentCardCount = 0,
+    playsRemainingMe = 0,
+    playsRemainingOpponent = 0,
+    pliesToHandEnd = 0,
+    requestSource = 'auto',
+    modelSelection = null,
+    reasoningMode = null,
+    opponentModel = {},
     legalMoves = []
   } = payload;
+
+  const normalizedLastCaptureBy = lastCaptureBy === 'ME'
+    ? 'tu'
+    : lastCaptureBy === 'OPPONENT'
+      ? 'avversario'
+      : 'nessuno';
+  const normalizedOpponentModel = normalizeOpponentModel(
+    opponentModel,
+    isEndgame,
+    opponentHandIsKnown,
+    pliesToHandEnd
+  );
+  const normalizedRules = normalizeRules(rules);
+  const normalizedRequestSource = normalizeRequestSource(requestSource);
+  const normalizedModelSelection = normalizeModelSelection(modelSelection);
+  const normalizedReasoningMode = normalizeReasoningMode(reasoningMode);
+  const mustUseMaximin = normalizedOpponentModel.evaluationMethod === 'maximin';
+  const normalizedUnseenCardsCount = Number(
+    unseenCardsCount !== null && unseenCardsCount !== undefined
+      ? unseenCardsCount
+      : legacyUnknownCardsCount
+  ) || 0;
 
   return [
     `Carte nella mia mano: ${Array.isArray(myHand) && myHand.length ? myHand.join(', ') : 'nessuna'}`,
@@ -203,10 +479,33 @@ function buildUserPrompt(payload) {
     `Carte prese da me: ${formatCardList(myCapturedCards)}`,
     `Carte prese avversario: ${formatCardList(opponentCapturedCards)}`,
     `Conteggio prese (io/avversario): ${Array.isArray(myCapturedCards) ? myCapturedCards.length : 0}/${Array.isArray(opponentCapturedCards) ? opponentCapturedCards.length : 0}`,
-    `Carte sconosciute: ${Number(unknownCardsCount) || 0}`,
+    `Regole attive - mustCaptureIfPlayableCardCanCapture: ${formatBoolean(normalizedRules.mustCaptureIfPlayableCardCanCapture)}`,
+    `Regole attive - mustPlayCapturingCardIfHaveOne: ${formatBoolean(normalizedRules.mustPlayCapturingCardIfHaveOne)}`,
+    `Regole attive - capturePriority: ${normalizedRules.capturePriority}`,
+    `Regole attive - endOfHandLastTakerGetsTableRemainder: ${formatBoolean(normalizedRules.endOfHandLastTakerGetsTableRemainder)}`,
+    `Regole attive - aceValue: ${normalizedRules.aceValue}`,
+    `Carte non viste (unseen): ${normalizedUnseenCardsCount}`,
+    `Carte residue nel mazzo: ${Math.max(0, Number(deckCardsRemaining) || 0)}`,
+    `Fine partita (mazzo vuoto): ${isEndgame ? 'si' : 'no'}`,
+    `Mano avversario completamente nota: ${opponentHandIsKnown ? 'si' : 'no'}`,
+    `Carte certe avversario: ${formatCardList(knownOpponentCards)}`,
+    `Ultima presa di: ${normalizedLastCaptureBy}`,
     `Probabilita per valore (0..1, 6 decimali): ${formatProbabilities(probabilitiesByRank)}`,
+    `Valori certi in mano avversario (prob=1): ${Array.isArray(certainOpponentRanks) && certainOpponentRanks.length ? certainOpponentRanks.join(', ') : 'nessuno'}`,
     `Top valori probabili avversario: ${formatTopProbabilities(probabilitiesByRank, 3)}`,
     `Carte avversario: ${Number(opponentCardCount) || 0}`,
+    `Carte residue in mano (io/avversario): ${Math.max(0, Number(playsRemainingMe) || 0)}/${Math.max(0, Number(playsRemainingOpponent) || 0)}`,
+    `Mosse residue totali fino a fine mano: ${Math.max(0, Number(pliesToHandEnd) || 0)}`,
+    `Origine richiesta suggerimento: ${normalizedRequestSource === 'manual' ? 'manuale (click utente)' : 'automatica'}`,
+    `Selettore modello: ${normalizedModelSelection || 'default-backend'}`,
+    `Selettore reasoning: ${normalizedReasoningMode || 'default-backend'}`,
+    `Modello avversario - perfect endgame: ${formatBoolean(normalizedOpponentModel.assumePerfectEndgamePlay)}`,
+    `Modello avversario - conta carte/inferisce mano: ${formatBoolean(normalizedOpponentModel.countsCardsAndInfersHands)}`,
+    `Modello avversario - massimizza outcome proprio: ${formatBoolean(normalizedOpponentModel.playsToMaximizeOwnOutcome)}`,
+    `Metodo valutazione richiesto: ${normalizedOpponentModel.evaluationMethod}`,
+    mustUseMaximin
+      ? 'Vincolo tattico: scegli la mossa con criterio maximin, cioe la piu robusta contro la miglior risposta avversaria.'
+      : 'Vincolo tattico: considera comunque la miglior risposta avversaria prima di decidere.',
     'Mosse legali disponibili (gia validate dal motore di gioco):',
     formatLegalMoves(legalMoves),
     'Scegli la mossa migliore tra quelle elencate sopra e rispondi SOLO con il JSON richiesto.'
@@ -231,15 +530,32 @@ function resolveOpenAiTemperature(model) {
   return 0.2;
 }
 
-function resolveOpenAiReasoningEffort(model) {
+function resolveOpenAiReasoningEffort(model, payload) {
+  const requestedMode = normalizeReasoningMode(payload?.reasoningMode);
+  if (requestedMode) {
+    const normalizedModel = (model || '').trim().toLowerCase();
+    if (!normalizedModel.startsWith('gpt-5')) {
+      return null;
+    }
+
+    if (requestedMode === 'low') {
+      return 'low';
+    }
+    if (requestedMode === 'medium') {
+      return 'medium';
+    }
+
+    return shouldUseMediumReasoning(payload) ? 'medium' : 'low';
+  }
+
   const configured = (process.env.OPENAI_REASONING_EFFORT || '').trim().toLowerCase();
-  if (configured) {
+  if (configured && configured !== 'auto') {
     return configured;
   }
 
   const normalized = (model || '').trim().toLowerCase();
   if (normalized.startsWith('gpt-5')) {
-    return 'minimal';
+    return shouldUseMediumReasoning(payload) ? 'medium' : 'low';
   }
 
   return null;
@@ -354,12 +670,14 @@ async function queryOpenAi(userPrompt, payload) {
     throw createError(500, 'OPENAI_API_KEY non configurata sul backend.');
   }
 
-  const model = (process.env.OPENAI_MODEL || 'gpt-4o-mini').trim();
+  const configuredModel = (process.env.OPENAI_MODEL || 'gpt-5.2').trim();
+  const requestedModel = normalizeModelSelection(payload?.modelSelection);
+  const model = requestedModel || configuredModel;
   const maxOutputTokens = Number(process.env.AI_MAX_OUTPUT_TOKENS || 384);
   const endpoint = 'https://api.openai.com/v1/chat/completions';
   let tokenParameter = resolveOpenAiTokenParameter(model);
   let temperature = resolveOpenAiTemperature(model);
-  let reasoningEffort = resolveOpenAiReasoningEffort(model);
+  let reasoningEffort = resolveOpenAiReasoningEffort(model, payload);
   const fetchCompletion = (forceJson) => fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -431,7 +749,22 @@ async function queryOpenAi(userPrompt, payload) {
     throw createError(502, summarizeEmptyOpenAiResponse(data));
   }
 
-  return formatFinalSuggestion(rawSuggestion, payload?.legalMoves);
+  const usageSnapshot = buildUsageSnapshot(data?.usage);
+  const costEstimate = estimateOpenAiCostUsd(model, usageSnapshot);
+  logCostEstimate(costEstimate);
+
+  return {
+    suggestion: formatFinalSuggestion(rawSuggestion, payload?.legalMoves),
+    usage: usageSnapshot || undefined,
+    estimatedCostUsd: costEstimate?.totalCostUsd ?? null,
+    estimatedCostBreakdownUsd: costEstimate
+      ? {
+        input: costEstimate.inputCostUsd,
+        cachedInput: costEstimate.cachedInputCostUsd,
+        output: costEstimate.outputCostUsd
+      }
+      : undefined
+  };
 }
 
 function extractOpenAiText(data) {
@@ -560,7 +893,7 @@ function summarizeEmptyOpenAiResponse(data) {
     `usage(prompt=${promptTokens}, completion=${completionTokens}, total=${totalTokens}, reasoning=${reasoningTokens}).`,
     `message_keys=${messageKeys}.`,
     'Con modelli reasoning (es. gpt-5-mini) i token possono essere consumati nel reasoning interno.',
-    'Imposta OPENAI_REASONING_EFFORT=minimal e riduci la lunghezza del prompt; aumentare solo i token spesso non basta.'
+    'Imposta OPENAI_REASONING_EFFORT=low (oppure medium in endgame) e riduci la lunghezza del prompt; aumentare solo i token spesso non basta.'
   ].join(' ');
 }
 
@@ -678,6 +1011,7 @@ function formatFinalSuggestion(rawSuggestion, legalMoves) {
   const sanitizedRawSuggestion = stripFormattingArtifacts(rawSuggestion);
   const parsed = safeParseJson(sanitizedRawSuggestion);
   const normalizedMoves = normalizeLegalMoves(legalMoves);
+  const fieldMaxLength = 500;
 
   if (!parsed || typeof parsed !== 'object') {
     if (!sanitizedRawSuggestion || !sanitizedRawSuggestion.trim()) {
@@ -697,21 +1031,21 @@ function formatFinalSuggestion(rawSuggestion, legalMoves) {
     throw createError(502, `Risposta AI non valida: ${reason}`);
   }
 
-  const confidence = cleanLine(parsed.confidence || '', 24);
-  const shortReason = cleanBlock(parsed.short_reason || parsed.reason || '', 900);
+  const confidence = cleanLine(parsed.confidence || '', fieldMaxLength);
+  const shortReason = cleanBlock(parsed.short_reason || parsed.reason || '', fieldMaxLength);
   const alternativeRejected = cleanBlock(
     parsed.alternative_rejected || parsed.counterfactual || parsed.why_not || '',
-    320
+    fieldMaxLength
   );
   const riskNotes = Array.isArray(parsed.risk_notes)
     ? parsed.risk_notes
-      .map((item) => cleanLine(item, 140))
+      .map((item) => cleanLine(item, fieldMaxLength))
       .filter(Boolean)
       .slice(0, 3)
     : [];
   const nextTurnOutlook = cleanLine(
     parsed.next_turn_outlook || parsed.next_turn_plan || '',
-    220
+    fieldMaxLength
   );
 
   const lines = [`Carta consigliata: ${bestCard}`];

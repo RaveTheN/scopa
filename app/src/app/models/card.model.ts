@@ -32,6 +32,7 @@ export interface GameStateSnapshot {
   cardStates: Record<string, CardState>;
   phase: GamePhase;
   turn: Turn;
+  lastCaptureBy: Turn;
   showTableProbabilities: boolean;
   myHand: string[];
   opponentCardCount: number;
