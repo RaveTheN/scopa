@@ -10,8 +10,7 @@ interface StatsViewModel {
   coppePlayed: number;
   spadePlayed: number;
   bastoniPlayed: number;
-  totalPlayed: number;
-  remaining: number;
+  remainingCards: number;
   myCaptured: number;
   opponentCaptured: number;
   setteOroStatus: string;
@@ -29,31 +28,34 @@ const SETTE_ORO_ID = createCardId(Suit.Denari, 7);
   styleUrls: ['./stats-panel.component.scss']
 })
 export class StatsPanelComponent {
+  private readonly totalCards = 40;
+
   readonly autoQueryEnabled$ = this.aiSuggestionService.autoQueryEnabled$;
   readonly stats$ = this.gameStateService.state.pipe(
     map((state): StatsViewModel => {
-      const playedIds = Object.entries(state.cardStates)
-        .filter(([, cardState]) => cardState === CardState.PLAYED)
+      const knownCardIds = Object.entries(state.cardStates)
+        .filter(([, cardState]) => cardState !== CardState.UNKNOWN)
         .map(([cardId]) => cardId);
 
-      const denariPlayed = playedIds
+      const denariPlayed = knownCardIds
         .map((cardId) => CARD_BY_ID[cardId])
         .filter((card) => card?.suit === Suit.Denari)
         .length;
-      const coppePlayed = playedIds
+      const coppePlayed = knownCardIds
         .map((cardId) => CARD_BY_ID[cardId])
         .filter((card) => card?.suit === Suit.Coppe)
         .length;
-      const spadePlayed = playedIds
+      const spadePlayed = knownCardIds
         .map((cardId) => CARD_BY_ID[cardId])
         .filter((card) => card?.suit === Suit.Spade)
         .length;
-      const bastoniPlayed = playedIds
+      const bastoniPlayed = knownCardIds
         .map((cardId) => CARD_BY_ID[cardId])
         .filter((card) => card?.suit === Suit.Bastoni)
         .length;
 
-      const totalPlayed = playedIds.length;
+      const cardsOutsideDeck = knownCardIds.length + (knownCardIds.length > 0 ? state.opponentCardCount : 0);
+      const remainingCards = this.clamp(this.totalCards - cardsOutsideDeck, 0, this.totalCards);
       const myHasSetteOro = state.myCapturedCards.includes(SETTE_ORO_ID);
       const opponentHasSetteOro = state.opponentCapturedCards.includes(SETTE_ORO_ID);
 
@@ -71,8 +73,7 @@ export class StatsPanelComponent {
         coppePlayed,
         spadePlayed,
         bastoniPlayed,
-        totalPlayed,
-        remaining: 40 - totalPlayed,
+        remainingCards,
         myCaptured: state.myCapturedCards.length,
         opponentCaptured: state.opponentCapturedCards.length,
         setteOroStatus,
@@ -107,5 +108,9 @@ export class StatsPanelComponent {
     }
 
     return 'Scegli combinazione';
+  }
+
+  private clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
   }
 }
