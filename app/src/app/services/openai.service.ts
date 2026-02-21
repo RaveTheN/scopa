@@ -42,7 +42,7 @@ export interface OpenAiOpponentModel {
 }
 
 export type OpenAiRequestSource = 'manual' | 'auto';
-export type OpenAiModelSelection = 'gpt-5-mini' | 'gpt-5.2';
+export type OpenAiModelSelection = 'gpt-4.1-mini' | 'gpt-5-mini' | 'gpt-5.2';
 export type OpenAiReasoningMode = 'low' | 'auto' | 'medium';
 
 export interface OpenAiRules {

@@ -10,7 +10,7 @@ import { StatsPanelComponent } from './stats-panel.component';
 
 class AISuggestionServiceStub {
   private readonly autoQueryEnabledSubject = new BehaviorSubject<boolean>(true);
-  private readonly modelSelectionSubject = new BehaviorSubject<OpenAiModelSelection>('gpt-5-mini');
+  private readonly modelSelectionSubject = new BehaviorSubject<OpenAiModelSelection>('gpt-4.1-mini');
   private readonly reasoningModeSubject = new BehaviorSubject<OpenAiReasoningMode>('auto');
   readonly autoQueryEnabled$ = this.autoQueryEnabledSubject.asObservable();
   readonly modelSelection$ = this.modelSelectionSubject.asObservable();

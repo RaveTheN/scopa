@@ -109,7 +109,7 @@ describe('AISuggestionService', () => {
     expect(openAiService.lastInput?.playsRemainingOpponent).toBe(3);
     expect(openAiService.lastInput?.pliesToHandEnd).toBe(6);
     expect(openAiService.lastInput?.requestSource).toBe('manual');
-    expect(openAiService.lastInput?.modelSelection).toBe('gpt-5-mini');
+    expect(openAiService.lastInput?.modelSelection).toBe('gpt-4.1-mini');
     expect(openAiService.lastInput?.reasoningMode).toBe('auto');
     expect(openAiService.lastInput?.rules.capturePriority).toBe('free');
     expect(openAiService.lastInput?.rules.mustPlayCapturingCardIfHaveOne).toBeFalse();

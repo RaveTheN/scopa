@@ -6,6 +6,11 @@ dotenv.config();
 const app = express();
 const port = Number(process.env.PORT || 8787);
 const OPENAI_PRICING_USD_PER_1M = Object.freeze({
+  'gpt-4.1-mini': Object.freeze({
+    input: 0.40,
+    cachedInput: 0.04,
+    output: 1.60
+  }),
   'gpt-5-mini': Object.freeze({
     input: 0.25,
     cachedInput: 0.025,
@@ -339,6 +344,10 @@ function normalizeModelSelection(value) {
     ? value.trim().toLowerCase()
     : '';
 
+  if (normalized === 'gpt-4.1-mini') {
+    return 'gpt-4.1-mini';
+  }
+
   if (normalized === 'gpt-5-mini') {
     return 'gpt-5-mini';
   }
@@ -527,7 +536,7 @@ function resolveOpenAiTemperature(model) {
     return null;
   }
 
-  return 0.2;
+  return 0.3;
 }
 
 function resolveOpenAiReasoningEffort(model, payload) {
@@ -664,6 +673,23 @@ function resolveTokenParameterFromError(errorText, currentTokenParameter) {
     : 'max_tokens';
 }
 
+function resolveEffectiveMaxTokens(baseMaxTokens, model, reasoningEffort) {
+  const normalized = (model || '').trim().toLowerCase();
+
+  if (!normalized.startsWith('gpt-5')) {
+    return baseMaxTokens;
+  }
+
+  const effort = (reasoningEffort || '').trim().toLowerCase();
+  if (effort === 'medium' || effort === 'high') {
+    return normalized.startsWith('gpt-5.2')
+      ? baseMaxTokens * 4
+      : baseMaxTokens * 3;
+  }
+
+  return baseMaxTokens * 2;
+}
+
 async function queryOpenAi(userPrompt, payload) {
   const apiKey = (process.env.OPENAI_API_KEY || '').trim();
   if (!apiKey) {
@@ -673,11 +699,12 @@ async function queryOpenAi(userPrompt, payload) {
   const configuredModel = (process.env.OPENAI_MODEL || 'gpt-5.2').trim();
   const requestedModel = normalizeModelSelection(payload?.modelSelection);
   const model = requestedModel || configuredModel;
-  const maxOutputTokens = Number(process.env.AI_MAX_OUTPUT_TOKENS || 384);
+  const baseMaxOutputTokens = Number(process.env.AI_MAX_OUTPUT_TOKENS || 384);
   const endpoint = 'https://api.openai.com/v1/chat/completions';
   let tokenParameter = resolveOpenAiTokenParameter(model);
   let temperature = resolveOpenAiTemperature(model);
   let reasoningEffort = resolveOpenAiReasoningEffort(model, payload);
+  const maxOutputTokens = resolveEffectiveMaxTokens(baseMaxOutputTokens, model, reasoningEffort);
   const fetchCompletion = (forceJson) => fetch(endpoint, {
     method: 'POST',
     headers: {

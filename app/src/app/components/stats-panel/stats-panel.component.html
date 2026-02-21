@@ -29,16 +29,17 @@
     <span class="auto-ai-toggle-slider" aria-hidden="true"></span>
     <span>AI auto</span>
   </label>
-  <label class="auto-ai-toggle" for="model-toggle">
-    <input
-      id="model-toggle"
-      type="checkbox"
-      class="auto-ai-toggle-input"
-      [checked]="((modelSelection$ | async) ?? 'gpt-5-mini') === 'gpt-5.2'"
-      (change)="onModelToggle($event)"
-    />
-    <span class="auto-ai-toggle-slider" aria-hidden="true"></span>
-    <span>GPT-5.2 (off: mini)</span>
+  <label class="auto-ai-toggle" for="model-select">
+    <select
+      id="model-select"
+      class="model-select"
+      [value]="(modelSelection$ | async) ?? 'gpt-4.1-mini'"
+      (change)="onModelSelect($event)"
+    >
+      <option value="gpt-4.1-mini">GPT-4.1 mini (veloce)</option>
+      <option value="gpt-5-mini">GPT-5 mini</option>
+      <option value="gpt-5.2">GPT-5.2</option>
+    </select>
   </label>
   <label class="auto-ai-toggle" for="reasoning-auto-toggle">
     <input

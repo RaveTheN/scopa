@@ -55,7 +55,7 @@ export class AISuggestionService implements OnDestroy {
   private readonly modelSelectionStorageKey = 'ai_model_selection';
   private readonly reasoningModeStorageKey = 'ai_reasoning_mode';
   private readonly autoQueryEnabledSubject = new BehaviorSubject<boolean>(true);
-  private readonly modelSelectionSubject = new BehaviorSubject<OpenAiModelSelection>('gpt-5-mini');
+  private readonly modelSelectionSubject = new BehaviorSubject<OpenAiModelSelection>('gpt-4.1-mini');
   private readonly reasoningModeSubject = new BehaviorSubject<OpenAiReasoningMode>('auto');
   readonly autoQueryEnabled$ = this.autoQueryEnabledSubject.asObservable();
   readonly modelSelection$ = this.modelSelectionSubject.asObservable();
@@ -75,7 +75,7 @@ export class AISuggestionService implements OnDestroy {
       this.autoQueryEnabledSubject.next(saved);
     }
     const savedModelSelection = this.localStorageService.load<OpenAiModelSelection>(this.modelSelectionStorageKey);
-    if (savedModelSelection === 'gpt-5-mini' || savedModelSelection === 'gpt-5.2') {
+    if (savedModelSelection === 'gpt-4.1-mini' || savedModelSelection === 'gpt-5-mini' || savedModelSelection === 'gpt-5.2') {
       this.modelSelectionSubject.next(savedModelSelection);
     }
     const savedReasoningMode = this.localStorageService.load<OpenAiReasoningMode>(this.reasoningModeStorageKey);
@@ -233,7 +233,10 @@ export class AISuggestionService implements OnDestroy {
     const playsRemainingOpponent = state.opponentCardCount;
     const pliesToHandEnd = playsRemainingMe + playsRemainingOpponent;
     const opponentModel = this.buildOpponentModel(isEndgame, opponentHandIsKnown, pliesToHandEnd);
-    const modelSelection = this.modelSelectionSubject.value;
+    const userModelSelection = this.modelSelectionSubject.value;
+    const modelSelection: OpenAiModelSelection = requestSource === 'auto' && !isEndgame
+      ? 'gpt-4.1-mini'
+      : userModelSelection;
     const reasoningMode = this.reasoningModeSubject.value;
 
     return {

@@ -4,7 +4,7 @@ import { map } from 'rxjs';
 import { CARD_BY_ID, CardState, createCardId, GamePhase, Suit } from '../../models/card.model';
 import { AISuggestionService } from '../../services/ai-suggestion.service';
 import { GameStateService } from '../../services/game-state.service';
-import { OpenAiModelSelection, OpenAiReasoningMode } from '../../services/openai.service';
+import { OpenAiReasoningMode } from '../../services/openai.service';
 
 interface StatsViewModel {
   denariPlayed: number;
@@ -101,10 +101,12 @@ export class StatsPanelComponent {
     this.gameStateService.setShowTableProbabilities(!!target?.checked);
   }
 
-  onModelToggle(event: Event): void {
-    const target = event.target as HTMLInputElement | null;
-    const nextModel: OpenAiModelSelection = target?.checked ? 'gpt-5.2' : 'gpt-5-mini';
-    this.aiSuggestionService.setModelSelection(nextModel);
+  onModelSelect(event: Event): void {
+    const target = event.target as HTMLSelectElement | null;
+    const value = target?.value;
+    if (value === 'gpt-4.1-mini' || value === 'gpt-5-mini' || value === 'gpt-5.2') {
+      this.aiSuggestionService.setModelSelection(value);
+    }
   }
 
   onReasoningAutoToggle(event: Event): void {
